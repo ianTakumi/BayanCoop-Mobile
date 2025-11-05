@@ -239,7 +239,7 @@ export default function Profile() {
           {/* Help & Support */}
           <TouchableOpacity
             className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
-            onPress={() => router.replace("/users/Contact")}
+            onPress={() => router.push("/users/Contact")}
           >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
@@ -255,7 +255,10 @@ export default function Profile() {
           </TouchableOpacity>
 
           {/* About App */}
-          <TouchableOpacity className="px-6 py-4 flex-row items-center justify-between">
+          <TouchableOpacity
+            className="px-6 py-4 flex-row items-center justify-between"
+            onPress={() => router.push("/users/AboutUs")}
+          >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
                 <Ionicons

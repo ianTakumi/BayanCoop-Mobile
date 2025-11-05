@@ -1,4 +1,5 @@
 import { FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -28,6 +29,7 @@ export default function Contact() {
       message: "",
     },
   });
+  const router = useRouter();
 
   const onSubmit = (data) => {
     console.log("Form submitted:", data);
@@ -59,7 +61,7 @@ export default function Contact() {
           <View className="flex-row items-center mb-4">
             <TouchableOpacity
               className="w-10 h-10 bg-green-700 rounded-full items-center justify-center mr-3"
-              onPress={() => console.log("Go back")}
+              onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={20} color="white" />
             </TouchableOpacity>
