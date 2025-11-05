@@ -1,14 +1,14 @@
+import GlobalActionSheet from "@/components/GlobalActionSheet";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import { Provider } from "react-redux";
-import "../index.css";
-import { store, persistor } from "../redux/store";
-import { PersistGate } from "redux-persist/integration/react";
 import { ActivityIndicator, View } from "react-native";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
+import "../index.css";
+import { persistor, store } from "../redux/store";
 
 export default function RootLayout() {
-  // 👈 default export required!
   return (
     <Provider store={store}>
       <PersistGate
@@ -28,7 +28,8 @@ export default function RootLayout() {
           <Stack.Screen name="LoginScreen" />
           <Stack.Screen name="RegisterScreen" />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
+        <GlobalActionSheet />
       </PersistGate>
     </Provider>
   );

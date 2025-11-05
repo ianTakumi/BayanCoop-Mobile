@@ -35,7 +35,6 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
-      state.hasOnboarded = false; // Reset onboarded on logout
     },
     setOnboarded: (state) => {
       state.hasOnboarded = true;

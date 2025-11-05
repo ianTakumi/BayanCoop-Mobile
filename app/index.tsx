@@ -6,16 +6,19 @@ import { RootState } from "../redux/store";
 
 export default function Index() {
   const router = useRouter();
-  const { hasOnboarded, isAuthenticated } = useSelector(
+
+  const { hasOnboarded, isAuthenticated, user } = useSelector(
     (state: RootState) => state.auth
   );
 
-  console.log(hasOnboarded);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (hasOnboarded) {
         if (isAuthenticated) {
-          router.replace("/HomeScreen");
+          // ✅ Check the role before navigating
+          if (user?.role === "user") {
+            router.replace("/users/(drawers)/(tabs)");
+          }
         } else {
           router.replace("/LoginScreen");
         }
@@ -25,15 +28,11 @@ export default function Index() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [hasOnboarded, isAuthenticated]);
+  }, [hasOnboarded, isAuthenticated, user?.role]);
 
-  if (!hasOnboarded) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#22C55E" />
-      </View>
-    );
-  }
-
-  return null;
+  return (
+    <View className="flex-1 items-center justify-center bg-white">
+      <ActivityIndicator size="large" color="#22C55E" />
+    </View>
+  );
 }

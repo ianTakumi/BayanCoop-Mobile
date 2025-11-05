@@ -1,5 +1,8 @@
-import { useRouter } from "expo-router"; // ✅ import from expo-router
-import React, { useState } from "react";
+import { login, setOnboarded } from "@/redux/slices/authSlice";
+import client from "@/utils/axiosInstance";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
   Image,
   ScrollView,
@@ -8,16 +11,50 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDispatch } from "react-redux";
 
 const LoginScreen: React.FC = () => {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const router = useRouter(); // ✅ use router hook
+  const router = useRouter();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+  const dispatch = useDispatch();
 
-  const handleLogin = () => {
-    // Your login logic here...
-    console.log("Logging in with:", email, password);
-    // Example: router.replace("/HomeScreen");
+  const onSubmit = async (data) => {
+    await client
+      .post("/auth/user-login", data)
+      .then((res) => {
+        if (res.status === 200 && res.data.user.role === "user") {
+          dispatch(
+            login({
+              user: {
+                id: res.data.user.id,
+                first_name: res.data.user.first_name,
+                last_name: res.data.user.last_name,
+                email: res.data.user.email,
+                phone: res.data.user.phone,
+                role: res.data.user.role,
+              },
+              token: res.data.session.access_token,
+            })
+          );
+
+          dispatch(setOnboarded());
+
+          router.replace("/users/(drawers)/(tabs)");
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        alert("Invalid email or password. Please try again.");
+      });
   };
 
   return (
@@ -32,26 +69,69 @@ const LoginScreen: React.FC = () => {
         Getting Started
       </Text>
       <Text className="text-gray-400 mb-6">
-        Let's login for explore continues
+        Let&apos;s login for explore continues
       </Text>
 
+      {/* Email */}
       <Text className="text-gray-700 mb-2">Email</Text>
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="example@gmail.com"
-        keyboardType="email-address"
-        className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+      <Controller
+        control={control}
+        name="email"
+        rules={{
+          required: "Email is required",
+          pattern: {
+            value: /^\S+@\S+\.\S+$/,
+            message: "Enter a valid email address",
+          },
+        }}
+        render={({ field: { onChange, value } }) => (
+          <TextInput
+            value={value}
+            onChangeText={onChange}
+            placeholder="example@gmail.com"
+            keyboardType="email-address"
+            className={`border rounded-xl px-4 py-3 mb-1 ${
+              errors.email ? "border-red-400" : "border-gray-300"
+            }`}
+          />
+        )}
       />
 
+      {errors.email && (
+        <Text className="text-red-500 text-sm mb-3">
+          {errors.email.message}
+        </Text>
+      )}
+
       <Text className="text-gray-700 mb-2">Password</Text>
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Enter your password"
-        secureTextEntry
-        className="border border-gray-300 rounded-xl px-4 py-3 mb-2"
+      <Controller
+        control={control}
+        name="password"
+        rules={{
+          required: "Password is required",
+          minLength: {
+            value: 8,
+            message: "Password must be atleast 8 characters",
+          },
+        }}
+        render={({ field: { onChange, value } }) => (
+          <TextInput
+            value={value}
+            onChangeText={onChange}
+            placeholder="Enter your password"
+            secureTextEntry
+            className={`border rounded-xl px-4 py-3 mb-1 ${
+              errors.password ? "border-red-400" : "border-gray-300"
+            }`}
+          />
+        )}
       />
+
+      {errors.password && (
+        <Text className="text-red-500 text-sm mb-3">
+          {errors.password.message}
+        </Text>
+      )}
 
       <TouchableOpacity className="mb-6 self-end">
         <Text className="text-green-600 text-sm font-medium">
@@ -60,11 +140,14 @@ const LoginScreen: React.FC = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={handleLogin}
-        className="bg-green-500 rounded-xl py-3"
+        disabled={isSubmitting}
+        onPress={handleSubmit(onSubmit)}
+        className={`rounded-xl py-3 ${
+          isSubmitting ? "bg-green-300" : "bg-green-500"
+        }`}
       >
         <Text className="text-white text-center font-semibold text-base">
-          Sign in
+          {isSubmitting ? "Signing in..." : "Sign in"}
         </Text>
       </TouchableOpacity>
 

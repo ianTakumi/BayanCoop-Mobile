@@ -36,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splashIcon/splash-icon-light.png",
+          "image": "./assets/splashIcon/splash-light.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -46,14 +46,15 @@
         }
       ]
     ],
-    "splash": {
-      "image": "./assets/splashIcon/splash-icon-light.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2372370f-a87a-4ef3-9a24-23bb085515b0"
+      }
     }
   }
 }

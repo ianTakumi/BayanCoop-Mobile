@@ -1,9 +1,12 @@
+import { setOnboarded } from "@/redux/slices/authSlice";
+import client from "@/utils/axiosInstance";
 import {
   validateEmail,
   validatePassword,
   validatePhone,
 } from "@/utils/helpers";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -15,10 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import client from "@/utils/axiosInstance";
-import { useRouter } from "expo-router";
-import { UseDispatch } from "react-redux";
-import { setOnboarded } from "@/redux/slices/authSlice";
 import { useDispatch } from "react-redux";
 
 interface RegisterProps {
@@ -269,12 +268,9 @@ const RegisterScreen: React.FC<RegisterProps> = ({ navigation }) => {
           </View>
         )}
       />
-
-      {/* Submit Button with Loader */}
+      {/* Submit Button */}
       <TouchableOpacity
-        className={`rounded-xl py-3 ${
-          loading ? "bg-green-400" : "bg-green-500"
-        }`}
+        className={`rounded-xl py-3 ${loading ? "bg-green-400" : "bg-green-500"}`}
         disabled={loading}
         onPress={handleSubmit(onSubmit)}
       >
@@ -292,9 +288,9 @@ const RegisterScreen: React.FC<RegisterProps> = ({ navigation }) => {
         )}
       </TouchableOpacity>
 
-      <View className="flex-row justify-center mt-6 mb-10">
+      <View className="flex-row justify-center mt-6 mb-20">
         <Text className="text-gray-500">Already have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <TouchableOpacity onPress={() => router.push("/LoginScreen")}>
           <Text className="text-green-600 font-medium">Sign in</Text>
         </TouchableOpacity>
       </View>
