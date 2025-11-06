@@ -6,6 +6,10 @@ export default function _layout() {
     <Stack>
       <Stack.Screen name="(drawers)" options={{ headerShown: false }} />
       <Stack.Screen name="Contact" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="CoopRegisterScreen"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

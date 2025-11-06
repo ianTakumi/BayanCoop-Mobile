@@ -1,4 +1,5 @@
 import Entypo from "@expo/vector-icons/Entypo";
+import { useRouter } from "expo-router";
 import {
   Image,
   ScrollView,
@@ -13,8 +14,7 @@ export default function Index() {
   const user = useSelector((state) => state.auth.user);
   const firstName = user?.first_name?.split(" ")[0] || "Guest";
   const hasOnboarded = useSelector((state) => state.auth.hasOnboarded);
-
-  console.log(hasOnboarded);
+  const router = useRouter();
 
   return (
     <ScrollView className="flex-1 bg-white">
@@ -47,7 +47,7 @@ export default function Index() {
         </View>
 
         {/* New Products Section */}
-        <View className="mb-8">
+        <View className="mb-20">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-xl font-bold text-green-600">
               New Products
@@ -98,7 +98,7 @@ export default function Index() {
         </View>
 
         {/* Popular Products Section */}
-        <View className="mb-8">
+        <View className="mb-20">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-xl font-bold text-green-600">
               Popular Products
@@ -146,6 +146,27 @@ export default function Index() {
               <Text className="text-green-500 font-bold">P15</Text>
             </View>
           </ScrollView>
+        </View>
+
+        {/* Cooperative Registration Section */}
+        <View className="mb-20">
+          <View className="bg-green-500 rounded-2xl p-6 shadow-lg">
+            <Text className="text-xl font-bold text-white mb-2 text-center">
+              Do you own a cooperative?
+            </Text>
+            <Text className="text-green-100 text-center mb-4">
+              Does your cooperative want to take part in our platform and reach
+              more customers?
+            </Text>
+            <TouchableOpacity
+              className="bg-white px-6 py-3 rounded-lg self-center"
+              onPress={() => router.push("/users/CoopRegisterScreen")}
+            >
+              <Text className="text-green-600 font-bold text-lg">
+                Register Now
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Articles for you Section */}
