@@ -20,3 +20,11 @@ export const validatePassword = (password: string): boolean => {
 
   return passwordRegex.test(password);
 };
+
+export const formatPhoneNumber = (text: string) => {
+  // Remove all non-digit characters
+  const cleaned = text.replace(/\D/g, "");
+  // Limit to 11 digits (09XXXXXXXXX)
+  const limited = cleaned.substring(0, 11);
+  return limited;
+};

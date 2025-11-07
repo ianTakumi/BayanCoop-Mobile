@@ -10,6 +10,8 @@ export default function _layout() {
         name="CoopRegisterScreen"
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="AboutUs" options={{ headerShown: false }} />
+      <Stack.Screen name="UpdateProfile" options={{ headerShown: false }} />
     </Stack>
   );
 }

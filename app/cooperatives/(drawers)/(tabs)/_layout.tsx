@@ -18,7 +18,7 @@ export default function TabLayout() {
         },
         tabBarIcon: ({ color, size }) => {
           switch (route.name) {
-            case "index":
+            case "Index":
               return <Ionicons name="home-outline" size={22} color={color} />;
 
             case "Shop":
@@ -39,7 +39,7 @@ export default function TabLayout() {
         },
       })}
     >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="Index" options={{ title: "Home" }} />
       <Tabs.Screen name="Shop" options={{ title: "Shop" }} />
       <Tabs.Screen name="Cart" options={{ title: "Cart" }} />
       <Tabs.Screen name="Order" options={{ title: "Order" }} />

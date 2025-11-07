@@ -133,7 +133,10 @@ const LoginScreen: React.FC = () => {
         </Text>
       )}
 
-      <TouchableOpacity className="mb-6 self-end">
+      <TouchableOpacity
+        className="mb-6 self-end"
+        onPress={() => router.push("/ForgotPassword")}
+      >
         <Text className="text-green-600 text-sm font-medium">
           Forgot Password?
         </Text>

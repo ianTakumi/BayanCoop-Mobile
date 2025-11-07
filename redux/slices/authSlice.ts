@@ -52,8 +52,17 @@ const authSlice = createSlice({
       state.isAuthenticated = !!action.payload.token;
       state.hasOnboarded = action.payload.hasOnboarded;
     },
+    updateProfile: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = {
+          ...state.user,
+          ...action.payload,
+        };
+      }
+    },
   },
 });
 
-export const { login, logout, setOnboarded, restoreAuth } = authSlice.actions;
+export const { login, logout, setOnboarded, restoreAuth, updateProfile } =
+  authSlice.actions;
 export default authSlice.reducer;

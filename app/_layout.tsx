@@ -27,6 +27,7 @@ export default function RootLayout() {
           <Stack.Screen name="RoleSelectionScreen" />
           <Stack.Screen name="LoginScreen" />
           <Stack.Screen name="RegisterScreen" />
+          <Stack.Screen name="ForgotPassword" />
         </Stack>
         <StatusBar style="dark" />
         <GlobalActionSheet />

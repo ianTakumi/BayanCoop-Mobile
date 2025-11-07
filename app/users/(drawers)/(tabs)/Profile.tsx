@@ -92,7 +92,10 @@ export default function Profile() {
           </View>
 
           {/* Account Items */}
-          <TouchableOpacity className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200">
+          <TouchableOpacity
+            className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
+            onPress={() => router.push("/users/UpdateProfile")}
+          >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
                 <Ionicons name="person-outline" size={20} color="#10B981" />
@@ -235,6 +238,22 @@ export default function Profile() {
           <View className="px-6 py-4 border-b border-gray-200">
             <Text className="text-lg font-semibold text-gray-900">More</Text>
           </View>
+
+          {/* Cooperative Profile */}
+          <TouchableOpacity
+            className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
+            onPress={() => router.push("/cooperatives/(drawers)/(tabs)/Index")}
+          >
+            <View className="flex-row items-center">
+              <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
+                <Ionicons name="storefront-outline" size={20} color="#10B981" />
+              </View>
+              <Text className="text-gray-900 font-medium">
+                Switch to Cooperative Profile
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
 
           {/* Help & Support */}
           <TouchableOpacity
