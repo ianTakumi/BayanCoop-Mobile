@@ -16,13 +16,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
 import brgyData from "../../assets/data/refbrgy.json";
 import cityMunData from "../../assets/data/refcitymun.json";
 import provinceData from "../../assets/data/refprovince.json";
 import regionsData from "../../assets/data/refregion.json";
+
+// Platform-specific map imports
+let MapView, Marker;
+if (Platform.OS !== "web") {
+  const Maps = require("react-native-maps");
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+}
 
 const CoopRegisterScreen = () => {
   const [loading, setLoading] = useState(false);
@@ -365,7 +372,6 @@ const CoopRegisterScreen = () => {
       "1199",
       "1200",
     ],
-    // Add more cities and their postal codes as needed
     "Quezon City": [
       "1100",
       "1101",
@@ -471,13 +477,6 @@ const CoopRegisterScreen = () => {
     ],
   };
 
-  useEffect(() => {
-    console.log("Regions:", regions.length);
-    console.log("Provinces:", provinces.length);
-    console.log("Cities/Municipalities:", cities.length);
-    console.log("Barangays:", barangays.length);
-  }, []);
-
   const {
     control,
     handleSubmit,
@@ -526,6 +525,14 @@ const CoopRegisterScreen = () => {
 
   // Open map with current location
   const openMapPicker = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "Map Not Available",
+        "Location mapping is only available on the mobile app. Please use the iOS or Android app to set your cooperative location."
+      );
+      return;
+    }
+
     setMapLoading(true);
 
     const coords = await getCurrentLocation();
@@ -696,7 +703,7 @@ const CoopRegisterScreen = () => {
   };
 
   const onSubmit = async (data) => {
-    if (!data.latitude || !data.longitude) {
+    if (Platform.OS !== "web" && (!data.latitude || !data.longitude)) {
       Alert.alert(
         "Location Required",
         "Please pinpoint your cooperative location on the map."
@@ -769,8 +776,8 @@ const CoopRegisterScreen = () => {
         city: selectedCity,
         barangay: selectedBarangay,
         postalCode: data.postalCode,
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: data.latitude || "0",
+        longitude: data.longitude || "0",
         regionName: regionObj?.regDesc || "",
         provinceName: provinceObj?.provDesc || "",
         cityName: cityObj?.citymunDesc || "",
@@ -784,7 +791,6 @@ const CoopRegisterScreen = () => {
         }
       });
       console.log("Complete registration data:", registrationData);
-      // await new Promise((resolve) => setTimeout(resolve, 1500));
     } catch (error) {
       Alert.alert("Error", "Failed to register cooperative. Please try again.");
       setLoading(false);
@@ -849,7 +855,7 @@ const CoopRegisterScreen = () => {
     selectedCity &&
     selectedBarangay &&
     isPostalCodeValid &&
-    isLocationSet;
+    (Platform.OS === "web" || isLocationSet);
 
   // Action Sheet Style Picker Modal Component
   const ActionSheetPicker = ({
@@ -974,7 +980,7 @@ const CoopRegisterScreen = () => {
               <ActivityIndicator size="large" color="#22c55e" />
               <Text className="text-gray-500 mt-2">Loading map...</Text>
             </View>
-          ) : initialRegion ? (
+          ) : initialRegion && MapView ? (
             <MapView
               style={{ flex: 1 }}
               initialRegion={initialRegion}
@@ -993,7 +999,10 @@ const CoopRegisterScreen = () => {
             </MapView>
           ) : (
             <View className="flex-1 justify-center items-center">
-              <Text className="text-gray-500">Map not available</Text>
+              <Text className="text-gray-500">Map not available on web</Text>
+              <Text className="text-gray-400 text-sm mt-2">
+                Please use the mobile app to set location
+              </Text>
             </View>
           )}
         </View>
@@ -1320,28 +1329,36 @@ const CoopRegisterScreen = () => {
               {/* Map Location Picker */}
               <View className="mb-4">
                 <Text className="text-gray-700 font-semibold mb-2">
-                  Pinpoint Location on Map *
+                  Pinpoint Location on Map {Platform.OS === "web" ? "" : "*"}
                 </Text>
                 <TouchableOpacity
                   className={`border-2 rounded-xl p-4 flex-row justify-between items-center ${
                     isLocationSet
                       ? "border-green-500 bg-green-50"
                       : "border-gray-300 bg-white"
-                  }`}
+                  } ${Platform.OS === "web" ? "opacity-50" : ""}`}
                   onPress={openMapPicker}
+                  disabled={Platform.OS === "web"}
                 >
                   <View className="flex-1">
                     <Text
                       className={`text-base ${isLocationSet ? "text-gray-800 font-medium" : "text-gray-500"}`}
                     >
-                      {isLocationSet
-                        ? "Location Set ✓"
-                        : "Tap to set location on map"}
+                      {Platform.OS === "web"
+                        ? "Map available on mobile app only"
+                        : isLocationSet
+                          ? "Location Set ✓"
+                          : "Tap to set location on map"}
                     </Text>
                     {isLocationSet && (
                       <Text className="text-sm text-gray-600 mt-1">
                         Latitude: {watch("latitude")?.substring(0, 10)}...,
                         Longitude: {watch("longitude")?.substring(0, 10)}...
+                      </Text>
+                    )}
+                    {Platform.OS === "web" && (
+                      <Text className="text-sm text-gray-500 mt-1">
+                        Please use the mobile app to set location
                       </Text>
                     )}
                   </View>
@@ -1352,7 +1369,9 @@ const CoopRegisterScreen = () => {
                   />
                 </TouchableOpacity>
                 <Text className="text-xs text-gray-500 mt-1">
-                  Required to pinpoint exact cooperative location
+                  {Platform.OS === "web"
+                    ? "Location mapping is available on iOS and Android apps"
+                    : "Required to pinpoint exact cooperative location"}
                 </Text>
               </View>
             </View>

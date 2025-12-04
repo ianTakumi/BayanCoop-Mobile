@@ -1,6 +1,7 @@
 // store/index.ts
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
+import cooperativeReducer from "./slices/coopSlice";
 import {
   persistStore,
   persistReducer,
@@ -13,16 +14,30 @@ import {
 } from "redux-persist";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const persistConfig = {
-  key: "root",
+// Persist config for auth
+const authPersistConfig = {
+  key: "auth",
   storage: AsyncStorage,
 };
 
-const persistedAuthReducer = persistReducer(persistConfig, authReducer);
+// Persist config for cooperative - mas maganda hiwalay ang keys
+const cooperativePersistConfig = {
+  key: "cooperative",
+  storage: AsyncStorage,
+  // Optional: You can whitelist specific fields to persist
+  // whitelist: ['cooperativeLoggedIn', 'selectedCooperative']
+};
+
+const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
+const persistedCooperativeReducer = persistReducer(
+  cooperativePersistConfig,
+  cooperativeReducer
+);
 
 export const store = configureStore({
   reducer: {
     auth: persistedAuthReducer,
+    cooperative: persistedCooperativeReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

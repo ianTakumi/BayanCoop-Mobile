@@ -1,7 +1,7 @@
 import { login, setOnboarded } from "@/redux/slices/authSlice";
 import client from "@/utils/axiosInstance";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Image,
@@ -10,11 +10,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { useDispatch } from "react-redux";
+import { Ionicons } from "@expo/vector-icons";
 
 const LoginScreen: React.FC = () => {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const {
     control,
     handleSubmit,
@@ -27,9 +34,15 @@ const LoginScreen: React.FC = () => {
   });
   const dispatch = useDispatch();
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: any) => {
+    // Trim the data before sending to API
+    const trimmedData = {
+      email: data.email.trim(),
+      password: data.password.trim(),
+    };
+
     await client
-      .post("/auth/user-login", data)
+      .post("/auth/user-login", trimmedData)
       .then((res) => {
         if (res.status === 200 && res.data.user.role === "user") {
           dispatch(
@@ -57,111 +70,182 @@ const LoginScreen: React.FC = () => {
       });
   };
 
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <ScrollView className="flex-1 bg-white px-6 pt-16">
-      <Image
-        source={require("../assets/images/login.png")}
-        className="w-full h-56 mb-8"
-        resizeMode="contain"
-      />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1 bg-white pt-10"
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View className="px-6 pt-10 pb-6">
+            {/* Logo Section */}
+            <View className="items-center mb-8">
+              <Image
+                source={require("../assets/images/LogoWithName.png")}
+                className="w-60 h-60"
+                resizeMode="contain"
+              />
+            </View>
 
-      <Text className="text-2xl font-semibold text-gray-800 mb-1">
-        Getting Started
-      </Text>
-      <Text className="text-gray-400 mb-6">
-        Let&apos;s login for explore continues
-      </Text>
+            {/* Welcome Section */}
+            <View className="mb-8">
+              <Text className="text-3xl font-bold text-gray-800 mb-2">
+                Welcome Back
+              </Text>
+              <Text className="text-gray-500 text-base">
+                Sign in to continue to your account
+              </Text>
+            </View>
 
-      {/* Email */}
-      <Text className="text-gray-700 mb-2">Email</Text>
-      <Controller
-        control={control}
-        name="email"
-        rules={{
-          required: "Email is required",
-          pattern: {
-            value: /^\S+@\S+\.\S+$/,
-            message: "Enter a valid email address",
-          },
-        }}
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            value={value}
-            onChangeText={onChange}
-            placeholder="example@gmail.com"
-            keyboardType="email-address"
-            className={`border rounded-xl px-4 py-3 mb-1 ${
-              errors.email ? "border-red-400" : "border-gray-300"
-            }`}
-          />
-        )}
-      />
+            {/* Form Section */}
+            <View>
+              {/* Email */}
+              <View className="mb-4">
+                <Text className="text-gray-700 mb-2 font-medium">Email</Text>
+                <Controller
+                  control={control}
+                  name="email"
+                  rules={{
+                    required: "Email is required",
+                    pattern: {
+                      value: /^\S+@\S+\.\S+$/,
+                      message: "Enter a valid email address",
+                    },
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      value={value}
+                      onChangeText={(text) => onChange(text.replace(/\s/g, ""))}
+                      placeholder="Enter your email"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      className={`border rounded-xl px-4 py-4 text-base ${
+                        errors.email ? "border-red-400" : "border-gray-300"
+                      }`}
+                      style={{ color: "black" }}
+                      returnKeyType="next"
+                      enablesReturnKeyAutomatically
+                    />
+                  )}
+                />
+                {errors.email && (
+                  <Text className="text-red-500 text-sm mt-1">
+                    {errors.email.message}
+                  </Text>
+                )}
+              </View>
 
-      {errors.email && (
-        <Text className="text-red-500 text-sm mb-3">
-          {errors.email.message}
-        </Text>
-      )}
+              {/* Password */}
+              <View className="mb-2">
+                <Text className="text-gray-700 mb-2 font-medium">Password</Text>
+                <View className="relative">
+                  <Controller
+                    control={control}
+                    name="password"
+                    rules={{
+                      required: "Password is required",
+                      minLength: {
+                        value: 8,
+                        message: "Password must be at least 8 characters",
+                      },
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        value={value}
+                        onChangeText={(text) =>
+                          onChange(text.replace(/\s/g, ""))
+                        }
+                        placeholder="Enter your password"
+                        placeholderTextColor="#9CA3AF"
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        className={`border rounded-xl px-4 py-4 text-base pr-12 ${
+                          errors.password ? "border-red-400" : "border-gray-300"
+                        }`}
+                        style={{ color: "black" }}
+                        returnKeyType="done"
+                        onSubmitEditing={handleSubmit(onSubmit)}
+                      />
+                    )}
+                  />
+                  <TouchableOpacity
+                    onPress={toggleShowPassword}
+                    className="absolute right-4 top-4"
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={24}
+                      color="#6B7280"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {errors.password && (
+                  <Text className="text-red-500 text-sm mt-1">
+                    {errors.password.message}
+                  </Text>
+                )}
+              </View>
 
-      <Text className="text-gray-700 mb-2">Password</Text>
-      <Controller
-        control={control}
-        name="password"
-        rules={{
-          required: "Password is required",
-          minLength: {
-            value: 8,
-            message: "Password must be atleast 8 characters",
-          },
-        }}
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            value={value}
-            onChangeText={onChange}
-            placeholder="Enter your password"
-            secureTextEntry
-            className={`border rounded-xl px-4 py-3 mb-1 ${
-              errors.password ? "border-red-400" : "border-gray-300"
-            }`}
-          />
-        )}
-      />
+              {/* Forgot Password */}
+              <TouchableOpacity
+                className="mb-6 self-end"
+                onPress={() => router.push("/ForgotPassword")}
+                activeOpacity={0.7}
+              >
+                <Text className="text-green-600 text-sm font-semibold">
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
 
-      {errors.password && (
-        <Text className="text-red-500 text-sm mb-3">
-          {errors.password.message}
-        </Text>
-      )}
+              {/* Sign In Button */}
+              <TouchableOpacity
+                disabled={isSubmitting}
+                onPress={handleSubmit(onSubmit)}
+                className={`rounded-xl py-4 mb-6 ${
+                  isSubmitting ? "bg-green-300" : "bg-green-500"
+                } flex-row justify-center items-center`}
+                activeOpacity={0.8}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-white text-center font-bold text-base">
+                    Sign In
+                  </Text>
+                )}
+              </TouchableOpacity>
 
-      <TouchableOpacity
-        className="mb-6 self-end"
-        onPress={() => router.push("/ForgotPassword")}
-      >
-        <Text className="text-green-600 text-sm font-medium">
-          Forgot Password?
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        disabled={isSubmitting}
-        onPress={handleSubmit(onSubmit)}
-        className={`rounded-xl py-3 ${
-          isSubmitting ? "bg-green-300" : "bg-green-500"
-        }`}
-      >
-        <Text className="text-white text-center font-semibold text-base">
-          {isSubmitting ? "Signing in..." : "Sign in"}
-        </Text>
-      </TouchableOpacity>
-
-      <View className="flex-row justify-center mt-6">
-        <Text className="text-gray-500">Don't have an account? </Text>
-        <TouchableOpacity onPress={() => router.push("/RegisterScreen")}>
-          {/* ✅ Expo Router navigation */}
-          <Text className="text-green-600 font-medium">Sign up here</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+              {/* Sign Up Link */}
+              <View className="flex-row justify-center mt-4">
+                <Text className="text-gray-500">
+                  Don&apos;t have an account?{" "}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push("/RegisterScreen")}
+                  activeOpacity={0.7}
+                >
+                  <Text className="text-green-600 font-bold">Sign Up</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 

@@ -79,11 +79,14 @@ const RegisterScreen: React.FC<RegisterProps> = ({ navigation }) => {
 
   return (
     <ScrollView className="flex-1 bg-white px-6 pt-16">
-      <Image
-        source={require("../assets/images/register.png")}
-        className="w-full h-56 mb-8"
-        resizeMode="contain"
-      />
+      {/* Logo Section */}
+      <View className="items-center mb-8">
+        <Image
+          source={require("../assets/images/LogoWithName.png")}
+          className="w-60 h-60"
+          resizeMode="contain"
+        />
+      </View>
 
       <Text className="text-2xl font-semibold text-gray-800 mb-1">
         Mabuhay!

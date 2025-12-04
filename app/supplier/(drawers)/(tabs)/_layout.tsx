@@ -4,9 +4,6 @@ import React from "react";
 import { useSelector } from "react-redux";
 
 export default function TabLayout() {
-  const coop = useSelector((state) => state.cooperative.cooperativeLoggedIn);
-  const isApproved = coop?.isApproved;
-
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -39,32 +36,8 @@ export default function TabLayout() {
       })}
     >
       <Tabs.Screen name="Index" options={{ title: "Home" }} />
-
-      <Tabs.Screen
-        name="Members"
-        options={{
-          title: "Members",
-          tabBarButton: isApproved ? undefined : () => null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="Inventory"
-        options={{
-          title: "Inventory",
-          tabBarButton: isApproved ? undefined : () => null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="Source"
-        options={{
-          title: "Source",
-          tabBarButton: isApproved ? undefined : () => null,
-        }}
-      />
-
-      <Tabs.Screen name="Profile" options={{ title: "Profile" }} />
+      <Tabs.Screen name="Products" options={{ title: "Products" }} />
+      <Tabs.Screen name="Orders" options={{ title: Orders }} />
     </Tabs>
   );
 }

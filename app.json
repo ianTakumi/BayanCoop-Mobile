@@ -14,6 +14,10 @@
         "dark": "./assets/iosIcon/ios-dark.png",
         "light": "./assets/iosIcon/ios-light.png",
         "tinted": "./assets/iosIcon/ios-tinted.png"
+      },
+      "bundleIdentifier": "com.ianTakumi.bayancoop",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -55,6 +59,12 @@
       "eas": {
         "projectId": "2372370f-a87a-4ef3-9a24-23bb085515b0"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2372370f-a87a-4ef3-9a24-23bb085515b0"
     }
   }
 }

@@ -1,10 +1,11 @@
 import { logout } from "@/redux/slices/authSlice";
+import { setCooperativeLoggedIn } from "@/redux/slices/coopSlice"; // Import the action
 import ActionSheetHelper from "@/utils/ActionSheetHelper";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState, useEffect } from "react"; // Added useEffect
 import {
   Modal,
   ScrollView,
@@ -13,13 +14,17 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  Alert, // Added Alert
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
+import client from "@/utils/axiosInstance";
 
 export default function Profile() {
   const user = useSelector((state) => state.auth.user);
   const router = useRouter();
   const dispatch = useDispatch();
+  const [coop, setCoop] = useState(null);
+  const [loadingCoop, setLoadingCoop] = useState(false); // Added loading state
 
   // Mock user data
   const userData = {
@@ -47,6 +52,56 @@ export default function Profile() {
       router.push("/LoginScreen");
     });
   };
+
+  // Fetch coop details function
+  const fetchCoopDetails = async () => {
+    if (!user?.id) return;
+
+    setLoadingCoop(true);
+    try {
+      const res = await client.get(`/coops/get-coop-based-owner/${user.id}`);
+      if (res.status === 200 && res.data.coop.length > 0) {
+        console.log(res.status);
+        const coopData = res.data.coop[0];
+        setCoop(coopData);
+
+        // Dispatch to Redux store
+        dispatch(setCooperativeLoggedIn(coopData));
+
+        // Navigate to cooperative dashboard
+        router.push("/cooperatives/(drawers)/(tabs)/Index");
+
+        console.log("Cooperative profile loaded successfully");
+      } else {
+        Alert.alert(
+          "No Cooperative Found",
+          "You don't have a registered cooperative yet.",
+          [
+            {
+              text: "Register Now",
+              onPress: () => router.push("/users/CoopRegisterScreen"),
+            },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching coop:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load cooperative profile. Please try again."
+      );
+    } finally {
+      setLoadingCoop(false);
+    }
+  };
+
+  // Optional: Pre-fetch coop data when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      // You can pre-fetch here or just fetch when button is clicked
+    }
+  }, [user?.id]);
 
   if (!user) {
     return (
@@ -217,7 +272,7 @@ export default function Profile() {
         {/* Log Out */}
         <TouchableOpacity
           className="bg-white mt-6 mx-4 rounded-2xl px-6 py-4 flex-row items-center justify-between border border-gray-200"
-          onPress={handleLogout} // Pwedeng palitan ng handleLogoutWithAlert para mas simple
+          onPress={handleLogout}
         >
           <View className="flex-row items-center">
             <View className="bg-red-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
@@ -242,17 +297,27 @@ export default function Profile() {
           {/* Cooperative Profile */}
           <TouchableOpacity
             className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
-            onPress={() => router.push("/cooperatives/(drawers)/(tabs)/Index")}
+            onPress={fetchCoopDetails}
+            disabled={loadingCoop}
           >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
                 <Ionicons name="storefront-outline" size={20} color="#10B981" />
               </View>
-              <Text className="text-gray-900 font-medium">
-                Switch to Cooperative Profile
-              </Text>
+              <View>
+                <Text className="text-gray-900 font-medium">
+                  Switch to Cooperative Profile
+                </Text>
+                <Text className="text-gray-500 text-sm">
+                  {loadingCoop ? "Loading..." : "Manage your cooperative"}
+                </Text>
+              </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            {loadingCoop ? (
+              <Ionicons name="refresh" size={20} color="#9CA3AF" />
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            )}
           </TouchableOpacity>
 
           {/* Help & Support */}

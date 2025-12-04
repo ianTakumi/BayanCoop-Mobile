@@ -46,7 +46,7 @@ const Onboarding: React.FC = () => {
     if (index < slides.length - 1) {
       setIndex(index + 1);
     } else {
-      router.push("/RoleSelect");
+      router.push("/RegisterScreen");
     }
   };
 
