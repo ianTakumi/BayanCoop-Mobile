@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "BayanCoop",
-    "slug": "mobile",
+    "slug": "bayancoop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "bayancoop",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -28,7 +28,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ian_takumi.mobile"
+      "package": "com.ian_takumi.mobile",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "output": "static",
@@ -48,23 +52,30 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow BayanCoop to use face ID."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "2372370f-a87a-4ef3-9a24-23bb085515b0"
-      }
-    },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/2372370f-a87a-4ef3-9a24-23bb085515b0"
+    },
+    "owner": "ian_takumi",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6cc1b573-0611-4926-8f09-75367824c912"
+      }
     }
   }
 }

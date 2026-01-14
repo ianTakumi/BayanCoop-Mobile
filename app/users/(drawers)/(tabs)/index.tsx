@@ -1,5 +1,7 @@
 import Entypo from "@expo/vector-icons/Entypo";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
 import {
   Image,
   ScrollView,
@@ -7,18 +9,238 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
 } from "react-native";
 import { useSelector } from "react-redux";
+import client from "../../../../utils/axiosInstance";
 
 export default function Index() {
   const user = useSelector((state) => state.auth.user);
   const firstName = user?.first_name?.split(" ")[0] || "Guest";
-  const hasOnboarded = useSelector((state) => state.auth.hasOnboarded);
   const router = useRouter();
 
+  // Articles state
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 6,
+    total: 0,
+    totalPages: 0,
+  });
+
+  const categories = [
+    { value: "cooperative-news", label: "Cooperative News", color: "#3B82F6" },
+    { value: "member-stories", label: "Member Stories", color: "#8B5CF6" },
+    {
+      value: "financial-updates",
+      label: "Financial Updates",
+      color: "#10B981",
+    },
+    { value: "community-events", label: "Community Events", color: "#EF4444" },
+    {
+      value: "agricultural-tips",
+      label: "Agricultural Tips",
+      color: "#F59E0B",
+    },
+    {
+      value: "training-programs",
+      label: "Training Programs",
+      color: "#6366F1",
+    },
+    { value: "success-stories", label: "Success Stories", color: "#EC4899" },
+    { value: "announcements", label: "Announcements", color: "#6B7280" },
+  ];
+
+  useEffect(() => {
+    fetchArticles();
+  }, []);
+
+  const fetchArticles = async (page = 1) => {
+    try {
+      if (page === 1) setLoading(true);
+
+      const params = {
+        page,
+        limit: pagination.limit,
+        status: "published",
+      };
+
+      const response = await client.get("/articles", { params });
+      const data = response.data;
+
+      if (data.success) {
+        if (page === 1) {
+          setArticles(data.data || []);
+        } else {
+          setArticles((prev) => [...prev, ...(data.data || [])]);
+        }
+        setPagination({
+          ...pagination,
+          page,
+          total: data.total || 0,
+          totalPages: data.pagination?.totalPages || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching articles:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchArticles(1);
+  };
+
+  const loadMore = () => {
+    if (pagination.page < pagination.totalPages && !loading) {
+      fetchArticles(pagination.page + 1);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not published";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const truncateText = (text, length = 100) => {
+    if (!text) return "";
+    return text.length > length ? text.substring(0, length) + "..." : text;
+  };
+
+  const getCategoryColor = (category) => {
+    const categoryObj = categories.find((c) => c.value === category);
+    return categoryObj ? categoryObj.color : "#6B7280";
+  };
+
+  const getCategoryLabel = (category) => {
+    const categoryObj = categories.find((c) => c.value === category);
+    return categoryObj ? categoryObj.label : category;
+  };
+
+  const renderArticleItem = ({ item }) => (
+    <TouchableOpacity
+      className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100"
+      onPress={() => router.push(`/articles/${item.slug}`)}
+    >
+      {item.featured_image_url && (
+        <Image
+          source={{ uri: item.featured_image_url }}
+          className="w-full h-48 rounded-xl mb-4"
+          resizeMode="cover"
+        />
+      )}
+
+      <View className="flex-row items-center mb-2">
+        <View
+          className="px-3 py-1 rounded-full mr-2"
+          style={{ backgroundColor: `${getCategoryColor(item.category)}20` }}
+        >
+          <Text
+            className="text-xs font-medium"
+            style={{ color: getCategoryColor(item.category) }}
+          >
+            {getCategoryLabel(item.category)}
+          </Text>
+        </View>
+        <Text className="text-xs text-gray-500">
+          {formatDate(item.published_at || item.created_at)}
+        </Text>
+      </View>
+
+      <Text className="text-lg font-bold text-gray-800 mb-2">{item.title}</Text>
+
+      <Text className="text-gray-600 text-sm mb-4">
+        {truncateText(item.excerpt, 120)}
+      </Text>
+
+      <View className="flex-row justify-between items-center">
+        <View className="flex-row items-center">
+          <FontAwesome name="user" size={12} color="#6B7280" />
+          <Text className="text-xs text-gray-500 ml-1">
+            By {item.author_name || "BayanCoop"}
+          </Text>
+          <Text className="text-xs text-gray-500 mx-2">•</Text>
+          <Text className="text-xs text-gray-500">
+            {item.read_time || 5} min read
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          className="flex-row items-center"
+          onPress={() => router.push(`/articles/${item.slug}`)}
+        >
+          <Text className="text-green-600 font-medium text-sm mr-1">Read</Text>
+          <Entypo name="chevron-right" size={16} color="#059669" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderArticlesSection = () => {
+    if (loading && articles.length === 0) {
+      return (
+        <View className="py-8">
+          <ActivityIndicator size="large" color="#059669" />
+        </View>
+      );
+    }
+
+    if (articles.length === 0) {
+      return (
+        <View className="py-8 items-center">
+          <FontAwesome name="newspaper-o" size={48} color="#D1D5DB" />
+          <Text className="mt-4 text-lg font-medium text-gray-900">
+            No articles found
+          </Text>
+          <Text className="mt-2 text-gray-500 text-center">
+            Check back later for new content.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        data={articles}
+        renderItem={renderArticleItem}
+        keyExtractor={(item) => item.id.toString()}
+        scrollEnabled={false}
+        ListFooterComponent={
+          pagination.page < pagination.totalPages ? (
+            <TouchableOpacity
+              onPress={loadMore}
+              className="bg-green-100 px-4 py-3 rounded-lg items-center mt-4"
+            >
+              <Text className="text-green-700 font-medium">
+                Load More Articles
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
+      />
+    );
+  };
+
   return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="flex-1 p-8 bg-white">
+    <ScrollView
+      className="flex-1 bg-white"
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View className="flex-1 p-5 bg-white">
         {/* Greeting */}
         <View className="flex-row items-center mb-4">
           <Text className="text-2xl text-gray-800">Hello </Text>
@@ -31,7 +253,7 @@ export default function Index() {
         <View className="flex-row items-center bg-[#F4F4F4] rounded-xl px-4 py-3 mb-6 shadow-sm border border-[#E5E7EB]">
           <Entypo name="magnifying-glass" size={20} color="#6B7280" />
           <TextInput
-            placeholder="Search products, categories..."
+            placeholder="Search products, articles..."
             placeholderTextColor="#9CA3AF"
             className="flex-1 ml-2 text-base text-gray-700"
           />
@@ -41,13 +263,13 @@ export default function Index() {
         <View className="items-center mb-8">
           <Image
             source={require("@/assets/images/users/home/firstImage.png")}
-            className="w-[310px] h-[250px]"
+            className="w-full h-60"
             resizeMode="contain"
           />
         </View>
 
         {/* New Products Section */}
-        <View className="mb-20">
+        <View className="mb-8">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-xl font-bold text-green-600">
               New Products
@@ -98,7 +320,7 @@ export default function Index() {
         </View>
 
         {/* Popular Products Section */}
-        <View className="mb-20">
+        <View className="mb-8">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-xl font-bold text-green-600">
               Popular Products
@@ -148,8 +370,25 @@ export default function Index() {
           </ScrollView>
         </View>
 
+        {/* Articles for you Section */}
+        <View className="mb-8">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold text-green-600">
+              Articles for you
+            </Text>
+            <TouchableOpacity
+              className="bg-green-100 px-4 py-2 rounded-lg"
+              onPress={() => router.push("/articles")}
+            >
+              <Text className="text-green-700 font-medium">See all</Text>
+            </TouchableOpacity>
+          </View>
+
+          {renderArticlesSection()}
+        </View>
+
         {/* Cooperative Registration Section */}
-        <View className="mb-20">
+        <View className="mb-8">
           <View className="bg-green-500 rounded-2xl p-6 shadow-lg">
             <Text className="text-xl font-bold text-white mb-2 text-center">
               Do you own a cooperative?
@@ -166,43 +405,6 @@ export default function Index() {
                 Register Now
               </Text>
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Articles for you Section */}
-        <View className="mb-8">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xl font-bold text-green-600">
-              Articles for you
-            </Text>
-            <TouchableOpacity className="bg-green-100 px-4 py-2 rounded-lg">
-              <Text className="text-green-700 font-medium">See all</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Article Card */}
-          <View className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <Text className="text-lg font-bold text-gray-800 mb-3">
-              Extraordinary Team on Peak!
-            </Text>
-
-            <View className="mb-4">
-              <Text className="text-gray-600 mb-2">
-                • Calaguise team successfully launched their first product
-                introducing more benefits to give to farmers.
-              </Text>
-            </View>
-
-            <TouchableOpacity className="bg-green-500 px-4 py-3 rounded-lg self-start">
-              <Text className="text-white font-medium">Read More</Text>
-            </TouchableOpacity>
-
-            {/* Divider */}
-            <View className="border-t border-gray-200 my-4"></View>
-
-            <Text className="text-lg font-bold text-gray-800">
-              JTSTANDING FARMER ASSOCIATION
-            </Text>
           </View>
         </View>
       </View>

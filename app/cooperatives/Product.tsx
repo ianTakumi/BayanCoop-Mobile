@@ -13,6 +13,7 @@ import {
   Modal,
   FlatList,
   Switch,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import client from "@/utils/axiosInstance";
@@ -25,30 +26,72 @@ import {
   Category,
   Supplier,
   ProductWithDetails,
+  Attribute,
+  ProductAttribute,
 } from "@/types";
+
+// Add these types to your types file
+type AttributeFormData = {
+  attribute_id: string;
+  attribute_value: string;
+  SKU: string;
+  price: string;
+  member_price: string;
+  stock: string;
+};
+
+const { width } = Dimensions.get("window");
 
 export default function ProductFormScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const productId = params.id as string | undefined;
   const isEditMode = !!productId;
-
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [nestedCategories, setNestedCategories] = useState<Category[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null
+  const [showUnitTypeModal, setShowUnitTypeModal] = useState(false);
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [productAttributes, setProductAttributes] = useState<
+    ProductAttribute[]
+  >([]);
+  const [showAttributeModal, setShowAttributeModal] = useState(false);
+  const [editingAttributeIndex, setEditingAttributeIndex] = useState<
+    number | null
+  >(null);
+  const [availableAttributes, setAvailableAttributes] = useState<Attribute[]>(
+    []
   );
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
-    null
-  );
+  const [attributeValues, setAttributeValues] = useState<
+    Record<string, string[]>
+  >({});
+  const [loadingAttributes, setLoadingAttributes] = useState(false);
+  const [showAttributeValueDropdown, setShowAttributeValueDropdown] =
+    useState(false);
+  const [customAttributeValue, setCustomAttributeValue] = useState("");
+
+  const unitTypes = [
+    { value: "piece", label: "Piece" },
+    { value: "kg", label: "Kilogram (kg)" },
+    { value: "g", label: "Gram (g)" },
+    { value: "liter", label: "Liter" },
+    { value: "ml", label: "Milliliter (ml)" },
+    { value: "pack", label: "Pack" },
+    { value: "bottle", label: "Bottle" },
+    { value: "bag", label: "Bag" },
+    { value: "bunch", label: "Bunch" },
+    { value: "dozen", label: "Dozen" },
+    { value: "box", label: "Box" },
+  ];
 
   const coop = useSelector((state) => state.cooperative.cooperativeLoggedIn);
+  console.log("Product ID", productId);
   const cooperativeId = coop?.id;
 
   const {
@@ -63,31 +106,28 @@ export default function ProductFormScreen() {
       name: "",
       description: "",
       category_id: "",
-      unit_type: "pcs",
-      package_size: "",
-      weight_grams: "",
-      dimensions_cm: "",
-      brand: "",
-      barcode: "",
-      source_type: "supplier",
-      supplier_id: "",
-      storage_instructions: "",
-      shelf_life_days: "",
-      requires_refrigeration: false,
-      is_fragile: false,
-      tags: [],
-      cost_price: "",
-      selling_price: "",
-      current_stock: "0",
-      min_stock_level: "10",
-      max_stock_level: "",
-      expiry_date: "",
-      location: "",
-      batch_number: "",
+      unit_type: "piece",
+      images: [],
+      is_featured: false,
+      is_best_seller: false,
+      is_new_arrival: false,
+      status: "active",
     },
   });
 
-  const sourceType = watch("source_type");
+  const watchCategoryId = watch("category_id");
+
+  // Fetch attributes when category changes
+  useEffect(() => {
+    if (watchCategoryId) {
+      fetchAttributesByCategory(watchCategoryId);
+    } else {
+      setAttributes([]);
+      setAvailableAttributes([]);
+      setAttributeValues({});
+      setProductAttributes([]);
+    }
+  }, [watchCategoryId]);
 
   // Organize categories into hierarchical structure
   const buildCategoryTree = (categories: Category[]): Category[] => {
@@ -135,16 +175,17 @@ export default function ProductFormScreen() {
     return result;
   };
 
-  // Fetch categories and suppliers
   useEffect(() => {
     if (cooperativeId) {
-      fetchCategories();
-      fetchSuppliers();
-      if (isEditMode) {
-        fetchProduct();
-      }
+      const loadData = async () => {
+        await fetchCategories();
+        if (isEditMode && productId) {
+          await fetchProduct();
+        }
+      };
+      loadData();
     }
-  }, [cooperativeId, isEditMode]);
+  }, [cooperativeId, isEditMode, productId]);
 
   const fetchCategories = async () => {
     try {
@@ -157,17 +198,84 @@ export default function ProductFormScreen() {
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
+      Alert.alert("Error", "Failed to load categories");
     }
   };
 
-  const fetchSuppliers = async () => {
+  const fetchAttributesByCategory = async (categoryId: string) => {
     try {
-      const response = await client.get(`/suppliers/dropdown`);
+      setLoadingAttributes(true);
+      const response = await client.get(`/attributes/category/${categoryId}`);
       if (response.data.success) {
-        setSuppliers(response.data.data);
+        const fetchedAttributes = response.data.data || [];
+        setAttributes(fetchedAttributes);
+
+        // All attributes are available for selection (can reuse types)
+        setAvailableAttributes(fetchedAttributes);
+
+        // Pre-fill attribute values for common attributes
+        const defaultValues: Record<string, string[]> = {};
+        fetchedAttributes.forEach((attr: Attribute) => {
+          switch (attr.name.toLowerCase()) {
+            case "size":
+              defaultValues[attr.attribute_id] = [
+                "Small",
+                "Medium",
+                "Large",
+                "XL",
+                "XXL",
+              ];
+              break;
+            case "color":
+              defaultValues[attr.attribute_id] = [
+                "Red",
+                "Blue",
+                "Green",
+                "Black",
+                "White",
+                "Yellow",
+              ];
+              break;
+            case "weight":
+              defaultValues[attr.attribute_id] = [
+                "100g",
+                "250g",
+                "500g",
+                "1kg",
+                "2kg",
+                "5kg",
+              ];
+              break;
+            case "flavor":
+              defaultValues[attr.attribute_id] = [
+                "Original",
+                "Chocolate",
+                "Vanilla",
+                "Strawberry",
+                "Matcha",
+              ];
+              break;
+            case "type":
+              defaultValues[attr.attribute_id] = [
+                "Regular",
+                "Premium",
+                "Organic",
+                "Gluten-Free",
+              ];
+              break;
+            default:
+              defaultValues[attr.attribute_id] = [];
+          }
+        });
+        setAttributeValues(defaultValues);
       }
     } catch (error) {
-      console.error("Error fetching suppliers:", error);
+      console.error("Error fetching attributes:", error);
+      setAttributes([]);
+      setAvailableAttributes([]);
+      setAttributeValues({});
+    } finally {
+      setLoadingAttributes(false);
     }
   };
 
@@ -175,7 +283,7 @@ export default function ProductFormScreen() {
     try {
       setLoading(true);
       const response = await client.get<ProductWithDetails>(
-        `/cooperatives/${cooperativeId}/products/${productId}`
+        `/products/single/${productId}/`
       );
 
       if (response.data.success) {
@@ -183,74 +291,45 @@ export default function ProductFormScreen() {
 
         // Set product form values
         const formData: Partial<ProductFormData> = {
-          name: productData.product.name || "",
-          description: productData.product.description || "",
-          category_id: productData.product.category_id || "",
-          unit_type: productData.product.unit_type || "pcs",
-          package_size: productData.product.package_size || "",
-          weight_grams: productData.product.weight_grams?.toString() || "",
-          dimensions_cm: productData.product.dimensions_cm || "",
-          brand: productData.product.brand || "",
-          barcode: productData.product.barcode || "",
-          source_type: productData.product.source_type as any,
-          supplier_id: productData.product.supplier_id || "",
-          storage_instructions: productData.product.storage_instructions || "",
-          shelf_life_days:
-            productData.product.shelf_life_days?.toString() || "",
-          requires_refrigeration:
-            productData.product.requires_refrigeration || false,
-          is_fragile: productData.product.is_fragile || false,
-          tags: productData.product.tags || [],
+          name: productData.name || "",
+          description: productData.description || "",
+          category_id: productData.category_id || "",
+          unit_type: productData.unit_type || "piece",
+          images: productData.images || [],
+          is_featured: productData.is_featured || false,
+          is_best_seller: productData.is_best_seller || false,
+          is_new_arrival: productData.is_new_arrival || false,
+          status: productData.status || "active",
         };
 
-        // Set price values
-        if (productData.current_price) {
-          formData.cost_price = productData.current_price.cost_price.toString();
-          formData.selling_price =
-            productData.current_price.selling_price.toString();
-        }
-
-        // Set inventory values
-        if (productData.inventory) {
-          formData.current_stock =
-            productData.inventory.current_stock.toString();
-          formData.min_stock_level =
-            productData.inventory.min_stock_level.toString();
-          formData.max_stock_level =
-            productData.inventory.max_stock_level?.toString();
-          formData.expiry_date = productData.inventory.expiry_date || "";
-          formData.location = productData.inventory.location || "";
-          formData.batch_number = productData.inventory.batch_number || "";
-        }
-
         reset(formData);
+        setImages(productData.images || []);
+
+        // Set product attributes if they exist
+        if (
+          productData.products_attributes &&
+          productData.products_attributes.length > 0
+        ) {
+          setProductAttributes(
+            productData.products_attributes.map((attr) => ({
+              ...attr,
+              attribute_name: attr.attribute?.name || "Unknown",
+              attribute_value: attr.attribute_value || "",
+            }))
+          );
+        }
 
         // Set selected category
-        if (productData.product.category_id) {
+        if (productData.category_id) {
           const category = categories.find(
-            (c) => c.id === productData.product.category_id
+            (c) => c.id === productData.category_id
           );
           if (category) {
             setSelectedCategory(category);
           }
-        }
 
-        // Set selected supplier
-        if (productData.product.supplier_id) {
-          const supplier = suppliers.find(
-            (s) => s.id === productData.product.supplier_id
-          );
-          if (supplier) {
-            setSelectedSupplier(supplier);
-          }
-        }
-
-        // Set images
-        if (
-          productData.product.images &&
-          productData.product.images.length > 0
-        ) {
-          setImages(productData.product.images);
+          // Fetch attributes for this category
+          await fetchAttributesByCategory(productData.category_id);
         }
       }
     } catch (error) {
@@ -265,14 +344,303 @@ export default function ProductFormScreen() {
     setSelectedCategory(category);
     setValue("category_id", category.id);
     setShowCategoryModal(false);
+    // Clear attributes when category changes
+    setProductAttributes([]);
   };
 
-  const handleSupplierSelect = (supplier: Supplier) => {
-    setSelectedSupplier(supplier);
-    setValue("supplier_id", supplier.id);
-    setShowSupplierModal(false);
+  const handleAddAttribute = () => {
+    if (!watchCategoryId) {
+      Alert.alert("Error", "Please select a category first");
+      return;
+    }
+    if (availableAttributes.length === 0) {
+      Alert.alert("Error", "No attributes available for this category");
+      return;
+    }
+    setEditingAttributeIndex(null);
+    setShowAttributeModal(true);
   };
 
+  const handleEditAttribute = (index: number) => {
+    setEditingAttributeIndex(index);
+    setShowAttributeModal(true);
+  };
+
+  const handleDeleteAttribute = (index: number) => {
+    Alert.alert(
+      "Delete Attribute",
+      "Are you sure you want to delete this attribute?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            const deletedAttr = productAttributes[index];
+            setProductAttributes((prev) => prev.filter((_, i) => i !== index));
+
+            // Note: We don't update availableAttributes since we allow reusing types
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAttributeSubmit = (attributeData: AttributeFormData) => {
+    const selectedAttribute = attributes.find(
+      (attr) => attr.attribute_id === attributeData.attribute_id
+    );
+
+    // Use custom value if provided, otherwise use selected value
+    const attributeValue =
+      customAttributeValue || attributeData.attribute_value;
+
+    const newAttribute: ProductAttribute = {
+      id:
+        editingAttributeIndex !== null
+          ? productAttributes[editingAttributeIndex].id
+          : undefined,
+      attribute_id: attributeData.attribute_id,
+      attribute_name: selectedAttribute?.name || "Unknown Attribute",
+      attribute_value: attributeValue,
+      SKU: attributeData.SKU.trim(),
+      price: parseFloat(attributeData.price) || 0,
+      member_price: parseFloat(attributeData.member_price) || 0,
+      stock: parseInt(attributeData.stock) || 0,
+      product_id: productId || "",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      attribute: selectedAttribute,
+    };
+
+    if (editingAttributeIndex !== null) {
+      // Update existing attribute
+      const updatedAttributes = [...productAttributes];
+      updatedAttributes[editingAttributeIndex] = newAttribute;
+      setProductAttributes(updatedAttributes);
+    } else {
+      // Add new attribute - Check for duplicate combination (same type + same value)
+      const isDuplicate = productAttributes.some(
+        (attr) =>
+          attr.attribute_id === attributeData.attribute_id &&
+          attr.attribute_value === attributeValue
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          "Duplicate Attribute",
+          `"${attributeValue}" already exists for ${selectedAttribute?.name}. Please use a different value.`
+        );
+        return;
+      }
+
+      setProductAttributes([...productAttributes, newAttribute]);
+    }
+
+    setShowAttributeModal(false);
+    setEditingAttributeIndex(null);
+    setCustomAttributeValue("");
+    setShowAttributeValueDropdown(false);
+  };
+
+  const pickImage = async () => {
+    try {
+      if (Platform.OS !== "web") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission needed",
+            "Sorry, we need camera roll permissions to make this work!"
+          );
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: 5 - images.length, // Max 5 images
+      });
+
+      if (!result.canceled) {
+        const newImages = result.assets.map((asset) => asset.uri);
+        if (images.length + newImages.length > 5) {
+          Alert.alert("Error", "Maximum 5 images allowed");
+          return;
+        }
+        setImages((prev) => [...prev, ...newImages]);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
+    }
+  };
+
+  const uploadImages = async (uris: string[]): Promise<string[]> => {
+    try {
+      setUploadingImage(true);
+      const uploadedUrls: string[] = [];
+
+      for (const uri of uris) {
+        if (uri.startsWith("http")) {
+          uploadedUrls.push(uri);
+          continue;
+        }
+
+        const formData = new FormData();
+        const filename = uri.split("/").pop() || `product_${Date.now()}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : "image/jpeg";
+
+        formData.append("image", {
+          uri: Platform.OS === "ios" ? uri.replace("file://", "") : uri,
+          name: filename,
+          type,
+        } as any);
+        formData.append("folder", "products");
+
+        const response = await client.post("/upload/single", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        if (response.data.success) {
+          uploadedUrls.push(response.data.data.url);
+        }
+      }
+
+      return uploadedUrls;
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      throw error;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const onSubmit = async (data: ProductFormData) => {
+    if (!cooperativeId) {
+      Alert.alert("Error", "Cooperative not found");
+      return;
+    }
+
+    // Validate required fields
+    if (!data.name.trim()) {
+      Alert.alert("Error", "Product name is required");
+      return;
+    }
+
+    if (!data.category_id) {
+      Alert.alert("Error", "Please select a category");
+      return;
+    }
+
+    // Validate attributes
+    if (productAttributes.length === 0) {
+      Alert.alert("Error", "Products must have at least one attribute");
+      return;
+    }
+
+    // Check for duplicate attribute combinations
+    const attributeCombinations = new Set();
+    for (const attr of productAttributes) {
+      const key = `${attr.attribute_id}-${attr.attribute_value}`;
+      if (attributeCombinations.has(key)) {
+        Alert.alert(
+          "Error",
+          `Duplicate attribute combination found: ${attr.attribute_name} - ${attr.attribute_value}`
+        );
+        return;
+      }
+      attributeCombinations.add(key);
+    }
+
+    try {
+      setLoading(true);
+
+      // Upload images if needed
+      let uploadedImages = images;
+      const newImages = images.filter((img) => !img.startsWith("http"));
+      if (newImages.length > 0) {
+        uploadedImages = await uploadImages(images);
+      }
+
+      // Prepare product data for API
+      const productPayload = {
+        name: data.name.trim(),
+        description: data.description?.trim() || "",
+        category_id: data.category_id,
+        unit_type: data.unit_type,
+        images: uploadedImages,
+        is_featured: data.is_featured,
+        is_best_seller: data.is_best_seller,
+        is_new_arrival: data.is_new_arrival,
+        status: data.status,
+        products_attributes: productAttributes.map((attr) => ({
+          id: attr.id, // For updates
+          attribute_id: attr.attribute_id,
+          attribute_value: attr.attribute_value,
+          SKU: attr.SKU.trim(),
+          price: parseFloat(attr.price.toString()) || 0,
+          member_price: parseFloat(attr.member_price.toString()) || 0,
+          stock: parseInt(attr.stock.toString()) || 0,
+        })),
+      };
+
+      console.log("Sending product data:", productPayload);
+
+      let response;
+      if (isEditMode) {
+        response = await client.put(
+          `/cooperatives/${cooperativeId}/products/${productId}`,
+          productPayload
+        );
+      } else {
+        response = await client.post(
+          `/products/${cooperativeId}/`,
+          productPayload
+        );
+      }
+
+      if (response.data.success) {
+        Alert.alert(
+          "Success",
+          isEditMode
+            ? "Product updated successfully!"
+            : "Product added successfully!",
+          [
+            {
+              text: "OK",
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to save product");
+      }
+    } catch (error: any) {
+      console.error("Error saving product:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        (isEditMode ? "Failed to update product" : "Failed to add product");
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to remove image
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Render function for category items
   const renderCategoryItem = ({ item }: { item: Category }) => {
     const paddingLeft = (item.level || 0) * 20 + 16;
 
@@ -309,248 +677,514 @@ export default function ProductFormScreen() {
     );
   };
 
-  const renderSupplierItem = ({ item }: { item: Supplier }) => {
+  // Unit Type Modal Component
+  const UnitTypeModal = () => {
+    const watchUnitType = watch("unit_type");
+
     return (
-      <TouchableOpacity
-        onPress={() => handleSupplierSelect(item)}
-        className={`py-3 px-4 border-b border-gray-100 ${
-          selectedSupplier?.id === item.id ? "bg-green-50" : "bg-white"
-        }`}
+      <Modal
+        visible={showUnitTypeModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowUnitTypeModal(false)}
       >
-        <Text
-          className={`font-medium ${
-            selectedSupplier?.id === item.id
-              ? "text-green-700"
-              : "text-gray-700"
-          }`}
-        >
-          {item.name}
-        </Text>
-        {item.contact_person && (
-          <Text className="text-gray-500 text-sm">
-            Contact: {item.contact_person}
-          </Text>
-        )}
-      </TouchableOpacity>
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl max-h-3/4">
+            <View className="p-6 border-b border-gray-200">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xl font-bold text-gray-900">
+                  Select Unit Type
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowUnitTypeModal(false)}
+                  className="p-2"
+                >
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <FlatList
+              data={unitTypes}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    setValue("unit_type", item.value);
+                    setShowUnitTypeModal(false);
+                  }}
+                  className={`px-4 py-3 border-b border-gray-100 ${
+                    watchUnitType === item.value ? "bg-green-50" : "bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`${
+                      watchUnitType === item.value
+                        ? "text-green-700 font-medium"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.value}
+              showsVerticalScrollIndicator={false}
+              className="max-h-96"
+            />
+          </View>
+        </View>
+      </Modal>
     );
   };
 
-  const pickImage = async () => {
-    try {
-      if (Platform.OS !== "web") {
-        const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert(
-            "Permission needed",
-            "Sorry, we need camera roll permissions to make this work!"
-          );
-          return;
-        }
+  // Attribute Modal Component - IMPROVED VERSION
+  const AttributeModal = ({
+    attribute,
+    availableAttributes,
+    attributeValues,
+    onSubmit,
+    onClose,
+  }: {
+    attribute: ProductAttribute | null;
+    availableAttributes: Attribute[];
+    attributeValues: Record<string, string[]>;
+    onSubmit: (data: AttributeFormData) => void;
+    onClose: () => void;
+  }) => {
+    const [formData, setFormData] = useState<AttributeFormData>({
+      attribute_id: attribute?.attribute_id || "",
+      attribute_value: attribute?.attribute_value || "",
+      SKU: attribute?.SKU || "",
+      price: attribute?.price?.toString() || "",
+      member_price: attribute?.member_price?.toString() || "",
+      stock: attribute?.stock?.toString() || "0",
+    });
+
+    const selectedAttribute = availableAttributes.find(
+      (attr) => attr.attribute_id === formData.attribute_id
+    );
+
+    const possibleValues = attributeValues[formData.attribute_id] || [];
+    const usedValues = productAttributes
+      .filter((attr) => attr.attribute_id === formData.attribute_id)
+      .map((attr) => attr.attribute_value);
+
+    const handleSubmit = () => {
+      if (!formData.attribute_id) {
+        Alert.alert("Error", "Please select an attribute type");
+        return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-        allowsMultipleSelection: true,
-      });
-
-      if (!result.canceled) {
-        const newImages = result.assets.map((asset) => asset.uri);
-        setImages((prev) => [...prev, ...newImages]);
-      }
-    } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image");
-    }
-  };
-
-  const uploadImages = async (uris: string[]): Promise<string[]> => {
-    try {
-      setUploadingImage(true);
-      const uploadedUrls: string[] = [];
-
-      for (const uri of uris) {
-        if (uri.startsWith("http")) {
-          uploadedUrls.push(uri);
-          continue;
-        }
-
-        const formData = new FormData();
-        const filename = uri.split("/").pop() || "product_image.jpg";
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : "image/jpeg";
-
-        formData.append("image", {
-          uri: Platform.OS === "ios" ? uri.replace("file://", "") : uri,
-          name: filename,
-          type,
-        } as any);
-        formData.append("folder", "uploads/products");
-
-        const response = await client.post("/upload/single", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-
-        if (response.data.success) {
-          uploadedUrls.push(response.data.data.url);
-        }
+      if (!formData.SKU.trim()) {
+        Alert.alert("Error", "Please enter SKU");
+        return;
       }
 
-      return uploadedUrls;
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      throw error;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const onSubmit = async (data: ProductFormData) => {
-    if (!cooperativeId) {
-      Alert.alert("Error", "Cooperative not found");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Upload images if needed
-      let uploadedImages = images;
-      const newImages = images.filter((img) => !img.startsWith("http"));
-      if (newImages.length > 0) {
-        uploadedImages = await uploadImages(images);
+      if (!formData.price) {
+        Alert.alert("Error", "Please enter price");
+        return;
       }
 
-      // Prepare product data for API
-      const productPayload = {
-        // Product data
-        name: data.name.trim(),
-        description: data.description?.trim(),
-        category_id: data.category_id || null,
-        unit_type: data.unit_type,
-        package_size: data.package_size?.trim(),
-        weight_grams: data.weight_grams ? parseFloat(data.weight_grams) : null,
-        dimensions_cm: data.dimensions_cm?.trim(),
-        brand: data.brand?.trim(),
-        barcode: data.barcode?.trim(),
-        source_type: data.source_type,
-        supplier_id: data.source_type === "supplier" ? data.supplier_id : null,
-        images: uploadedImages,
-        storage_instructions: data.storage_instructions?.trim(),
-        shelf_life_days: data.shelf_life_days
-          ? parseInt(data.shelf_life_days)
-          : null,
-        requires_refrigeration: data.requires_refrigeration,
-        is_fragile: data.is_fragile,
-        tags: data.tags,
-
-        // Price data
-        cost_price: parseFloat(data.cost_price),
-        selling_price: parseFloat(data.selling_price),
-
-        // Inventory data
-        current_stock: parseInt(data.current_stock),
-        min_stock_level: parseInt(data.min_stock_level),
-        max_stock_level: data.max_stock_level
-          ? parseInt(data.max_stock_level)
-          : null,
-        expiry_date: data.expiry_date || null,
-        location: data.location?.trim(),
-        batch_number: data.batch_number?.trim(),
-      };
-
-      let response;
-      if (isEditMode) {
-        response = await client.put(
-          `/cooperatives/${cooperativeId}/products/${productId}`,
-          productPayload
-        );
-      } else {
-        response = await client.post(
-          `/cooperatives/${cooperativeId}/products`,
-          productPayload
-        );
+      const attributeValue = customAttributeValue || formData.attribute_value;
+      if (!attributeValue.trim()) {
+        Alert.alert("Error", "Please enter an attribute value");
+        return;
       }
 
-      if (response.data.success) {
+      // Check if this value is already used for the same attribute type (only for new attributes)
+      if (!attribute && usedValues.includes(attributeValue.trim())) {
         Alert.alert(
-          "Success",
-          isEditMode
-            ? "Product updated successfully!"
-            : "Product added successfully!",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back(),
-            },
-          ]
+          "Error",
+          `"${attributeValue}" already exists for this attribute type. Please use a different value.`
         );
+        return;
       }
-    } catch (error: any) {
-      console.error("Error saving product:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        (isEditMode ? "Failed to update product" : "Failed to add product");
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleDelete = () => {
-    if (!productId || !cooperativeId) return;
+      onSubmit({ ...formData, attribute_value: attributeValue });
+    };
 
-    Alert.alert(
-      "Archive Product",
-      "Are you sure you want to archive this product? You can restore it later.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Archive",
-          style: "destructive",
-          onPress: () => deleteProduct(),
-        },
-      ]
+    // Generate SKU automatically when attribute and value are selected
+    useEffect(() => {
+      if (
+        formData.attribute_id &&
+        (customAttributeValue || formData.attribute_value) &&
+        !attribute
+      ) {
+        const attr = availableAttributes.find(
+          (a) => a.attribute_id === formData.attribute_id
+        );
+        if (attr && !formData.SKU) {
+          const attrPrefix = attr.name.substring(0, 3).toUpperCase();
+          const value = customAttributeValue || formData.attribute_value;
+          const valuePrefix = value.substring(0, 3).toUpperCase();
+          const randomNum = Math.floor(Math.random() * 1000)
+            .toString()
+            .padStart(3, "0");
+          setFormData((prev) => ({
+            ...prev,
+            SKU: `${attrPrefix}-${valuePrefix}-${randomNum}`,
+          }));
+        }
+      }
+    }, [formData.attribute_id, formData.attribute_value, customAttributeValue]);
+
+    return (
+      <Modal
+        visible={true}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1 bg-black/50 justify-end"
+        >
+          <ScrollView
+            className="bg-white rounded-t-3xl max-h-4/5"
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="p-6 border-b border-gray-200">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xl font-bold text-gray-900">
+                  {attribute ? "Edit Attribute" : "Add Attribute"}
+                </Text>
+                <TouchableOpacity onPress={onClose} className="p-2">
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View className="p-6">
+              <View className="space-y-4">
+                {/* Attribute Type */}
+                <View>
+                  <Text className="text-sm font-medium text-gray-700 mb-2">
+                    Attribute Type *
+                  </Text>
+                  <View className="border border-gray-300 rounded-lg">
+                    {availableAttributes.map((attr) => (
+                      <TouchableOpacity
+                        key={attr.attribute_id}
+                        onPress={() => {
+                          setFormData({
+                            ...formData,
+                            attribute_id: attr.attribute_id,
+                            attribute_value: "",
+                          });
+                          setCustomAttributeValue("");
+                          setShowAttributeValueDropdown(false);
+                        }}
+                        className={`px-4 py-3 border-b border-gray-100 ${
+                          formData.attribute_id === attr.attribute_id
+                            ? "bg-green-50"
+                            : "bg-white"
+                        }`}
+                      >
+                        <View className="flex-row justify-between items-center">
+                          <Text
+                            className={`${
+                              formData.attribute_id === attr.attribute_id
+                                ? "text-green-700 font-medium"
+                                : "text-gray-700"
+                            }`}
+                          >
+                            {attr.name}
+                          </Text>
+                          {usedValues.length > 0 &&
+                            formData.attribute_id === attr.attribute_id && (
+                              <Text className="text-xs text-blue-600">
+                                Used: {usedValues.join(", ")}
+                              </Text>
+                            )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Attribute Value */}
+                <View>
+                  <Text className="text-sm font-medium text-gray-700 mb-2">
+                    Attribute Value *
+                    {selectedAttribute && possibleValues.length > 0 && (
+                      <Text className="text-xs text-gray-500 ml-2">
+                        (Suggested: {possibleValues.join(", ")})
+                      </Text>
+                    )}
+                  </Text>
+
+                  {possibleValues.length > 0 ? (
+                    <>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setShowAttributeValueDropdown(
+                            !showAttributeValueDropdown
+                          )
+                        }
+                        className="border border-gray-300 rounded-lg px-4 py-3 flex-row justify-between items-center"
+                      >
+                        <Text className="text-gray-900">
+                          {formData.attribute_value ||
+                            customAttributeValue ||
+                            "Select a value"}
+                        </Text>
+                        <Ionicons
+                          name="chevron-down"
+                          size={20}
+                          color="#6B7280"
+                        />
+                      </TouchableOpacity>
+
+                      {showAttributeValueDropdown && (
+                        <View className="border border-gray-300 rounded-lg mt-1 max-h-40">
+                          <FlatList
+                            data={possibleValues}
+                            renderItem={({ item }) => (
+                              <TouchableOpacity
+                                onPress={() => {
+                                  setFormData({
+                                    ...formData,
+                                    attribute_value: item,
+                                  });
+                                  setCustomAttributeValue("");
+                                  setShowAttributeValueDropdown(false);
+                                }}
+                                className="px-4 py-3 border-b border-gray-100 bg-white"
+                              >
+                                <Text className="text-gray-700">{item}</Text>
+                              </TouchableOpacity>
+                            )}
+                            keyExtractor={(item, index) => index.toString()}
+                            scrollEnabled={true}
+                          />
+                          <TouchableOpacity
+                            onPress={() => {
+                              setFormData({ ...formData, attribute_value: "" });
+                              setCustomAttributeValue("");
+                              setShowAttributeValueDropdown(false);
+                            }}
+                            className="px-4 py-3 bg-gray-50"
+                          >
+                            <Text className="text-gray-700">
+                              Custom value...
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {(!formData.attribute_value ||
+                        showAttributeValueDropdown) && (
+                        <TextInput
+                          value={customAttributeValue}
+                          onChangeText={setCustomAttributeValue}
+                          placeholder="Or enter custom value"
+                          className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 mt-2"
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <TextInput
+                      value={customAttributeValue || formData.attribute_value}
+                      onChangeText={(value) => {
+                        if (possibleValues.length > 0) {
+                          setCustomAttributeValue(value);
+                        } else {
+                          setFormData({ ...formData, attribute_value: value });
+                        }
+                      }}
+                      placeholder={`Enter ${selectedAttribute?.name?.toLowerCase() || "attribute"} value`}
+                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                    />
+                  )}
+
+                  {usedValues.length > 0 && (
+                    <Text className="text-xs text-blue-600 mt-1">
+                      Note: You can use the same attribute type with different
+                      values
+                      {usedValues.length > 0 &&
+                        `. Current values: ${usedValues.join(", ")}`}
+                    </Text>
+                  )}
+                </View>
+
+                {/* SKU */}
+                <View>
+                  <Text className="text-sm font-medium text-gray-700 mb-2">
+                    SKU *
+                  </Text>
+                  <TextInput
+                    value={formData.SKU}
+                    onChangeText={(value) =>
+                      setFormData({ ...formData, SKU: value })
+                    }
+                    placeholder="e.g., SML-RED-001"
+                    className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                  />
+                  <Text className="text-xs text-gray-500 mt-1">
+                    {attribute
+                      ? "Edit SKU if needed"
+                      : "SKU will be auto-generated"}
+                  </Text>
+                </View>
+
+                {/* Price and Member Price */}
+                <View className="flex-row space-x-4">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-700 mb-2">
+                      Price (₱) *
+                    </Text>
+                    <TextInput
+                      value={formData.price}
+                      onChangeText={(value) =>
+                        setFormData({
+                          ...formData,
+                          price: value.replace(/[^0-9.]/g, ""),
+                        })
+                      }
+                      placeholder="0.00"
+                      keyboardType="decimal-pad"
+                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-gray-700 mb-2">
+                      Member Price (₱)
+                    </Text>
+                    <TextInput
+                      value={formData.member_price}
+                      onChangeText={(value) =>
+                        setFormData({
+                          ...formData,
+                          member_price: value.replace(/[^0-9.]/g, ""),
+                        })
+                      }
+                      placeholder="0.00"
+                      keyboardType="decimal-pad"
+                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                    />
+                  </View>
+                </View>
+
+                {/* Stock */}
+                <View>
+                  <Text className="text-sm font-medium text-gray-700 mb-2">
+                    Initial Stock *
+                  </Text>
+                  <TextInput
+                    value={formData.stock}
+                    onChangeText={(value) =>
+                      setFormData({
+                        ...formData,
+                        stock: value.replace(/[^0-9]/g, ""),
+                      })
+                    }
+                    placeholder="0"
+                    keyboardType="number-pad"
+                    className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
+                  />
+                </View>
+              </View>
+
+              <View className="flex-row space-x-4 mt-6">
+                <TouchableOpacity
+                  onPress={onClose}
+                  className="flex-1 border border-gray-300 rounded-lg py-3"
+                >
+                  <Text className="text-gray-700 text-center font-medium">
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSubmit}
+                  className="flex-1 bg-blue-600 rounded-lg py-3"
+                >
+                  <Text className="text-white text-center font-medium">
+                    {attribute ? "Update" : "Add"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     );
   };
 
-  const deleteProduct = async () => {
-    try {
-      setLoading(true);
-      const response = await client.delete(
-        `/cooperatives/${cooperativeId}/products/${productId}/archive`,
-        {
-          data: { archive_reason: "Archived by user" },
-        }
-      );
+  // Render function for attribute items
+  const renderAttributeItem = ({
+    item,
+    index,
+  }: {
+    item: ProductAttribute;
+    index: number;
+  }) => (
+    <View className="border border-gray-200 rounded-lg p-4 mb-3">
+      <View className="flex-row justify-between items-start mb-2">
+        <View className="flex-1">
+          <Text className="font-medium text-gray-800">
+            {item.attribute_name}
+          </Text>
+          <Text className="text-sm text-gray-600 mt-1">
+            Value: <Text className="font-medium">{item.attribute_value}</Text>
+          </Text>
+        </View>
+        <View className="flex-row space-x-2">
+          <TouchableOpacity
+            onPress={() => handleEditAttribute(index)}
+            className="p-2"
+          >
+            <Ionicons name="create-outline" size={20} color="#3B82F6" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeleteAttribute(index)}
+            className="p-2"
+          >
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      if (response.data.success) {
-        Alert.alert("Success", "Product archived successfully!", [
-          {
-            text: "OK",
-            onPress: () => router.back(),
-          },
-        ]);
-      }
-    } catch (error: any) {
-      console.error("Error archiving product:", error);
-      Alert.alert("Error", "Failed to archive product");
-    } finally {
-      setLoading(false);
-    }
-  };
+      <View className="flex-row flex-wrap mt-2">
+        <View className="w-1/2 pr-2 mb-2">
+          <Text className="text-xs text-gray-500">SKU</Text>
+          <Text className="text-sm font-mono">{item.SKU}</Text>
+        </View>
+        <View className="w-1/2 pl-2 mb-2">
+          <Text className="text-xs text-gray-500">Price</Text>
+          <Text className="text-sm text-green-600">
+            ₱{parseFloat(item.price.toString()).toFixed(2)}
+          </Text>
+        </View>
+        <View className="w-1/2 pr-2">
+          <Text className="text-xs text-gray-500">Member Price</Text>
+          <Text className="text-sm text-blue-600">
+            ₱{parseFloat(item.member_price.toString()).toFixed(2)}
+          </Text>
+        </View>
+        <View className="w-1/2 pl-2">
+          <Text className="text-xs text-gray-500">Stock</Text>
+          <Text
+            className={`text-sm ${item.stock <= 10 ? "text-yellow-600" : item.stock === 0 ? "text-red-600" : "text-green-600"}`}
+          >
+            {item.stock}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
+  // Calculate totals
+  const totalStock = productAttributes.reduce(
+    (sum, attr) => sum + (parseInt(attr.stock.toString()) || 0),
+    0
+  );
+  const totalValue = productAttributes.reduce((sum, attr) => {
+    return (
+      sum +
+      (parseFloat(attr.price.toString()) || 0) *
+        (parseInt(attr.stock.toString()) || 0)
+    );
+  }, 0);
 
   if (loading && isEditMode) {
     return (
@@ -567,7 +1201,7 @@ export default function ProductFormScreen() {
       className="flex-1 bg-white"
     >
       {/* Header */}
-      <View className="bg-green-600 pt-16 pb-6 px-6">
+      <View className="bg-green-600 pt-12 pb-4 px-4">
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => router.back()}
@@ -576,74 +1210,90 @@ export default function ProductFormScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <View className="flex-1">
-            <Text className="text-2xl font-bold text-white">
+            <Text className="text-xl font-bold text-white">
               {isEditMode ? "Edit Product" : "Add Product"}
             </Text>
-            <Text className="text-green-100 mt-1">
+            <Text className="text-green-100 text-sm mt-1">
               {isEditMode
                 ? "Update product details"
                 : "Add new products to your inventory"}
             </Text>
           </View>
-
-          {isEditMode && (
-            <TouchableOpacity onPress={handleDelete} className="p-2">
-              <Ionicons name="trash-outline" size={24} color="#EF4444" />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
       <ScrollView
-        className="flex-1 p-6"
+        className="flex-1 px-4"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 50 }}
+        contentContainerStyle={{ paddingBottom: 30 }}
       >
-        <View className="space-y-6">
+        <View className="space-y-4 pt-4">
           {/* Product Images */}
           <View>
             <Text className="text-sm font-medium text-gray-700 mb-2">
-              Product Images
+              Product Images {images.length > 0 && `(${images.length}/5)`}
             </Text>
-            <View className="flex-row flex-wrap gap-3">
-              {images.map((img, index) => (
-                <View key={index} className="relative">
-                  <Image
-                    source={{ uri: img }}
-                    className="w-20 h-20 rounded-lg"
-                    resizeMode="cover"
-                  />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mb-2"
+            >
+              <View className="flex-row gap-3">
+                {images.map((img, index) => (
+                  <View key={index} className="relative">
+                    <Image
+                      source={{ uri: img }}
+                      className="w-24 h-24 rounded-lg"
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      onPress={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"
+                    >
+                      <Ionicons name="close" size={14} color="white" />
+                    </TouchableOpacity>
+                    {index === 0 && (
+                      <View className="absolute bottom-1 left-1 bg-green-600 rounded px-2 py-1">
+                        <Text className="text-white text-xs">Main</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {images.length < 5 && (
                   <TouchableOpacity
-                    onPress={() => removeImage(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"
+                    onPress={pickImage}
+                    className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 items-center justify-center bg-gray-50"
+                    disabled={uploadingImage}
                   >
-                    <Ionicons name="close" size={16} color="white" />
+                    <Ionicons name="camera-outline" size={28} color="#9CA3AF" />
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Add Image
+                    </Text>
                   </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity
-                onPress={pickImage}
-                className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 items-center justify-center bg-gray-50"
-                disabled={uploadingImage}
-              >
-                <Ionicons name="camera-outline" size={24} color="#9CA3AF" />
-                <Text className="text-gray-500 text-xs mt-1">Add</Text>
-              </TouchableOpacity>
-            </View>
+                )}
+              </View>
+            </ScrollView>
             {uploadingImage && (
-              <View className="mt-2">
+              <View className="mt-2 flex-row items-center justify-center">
                 <ActivityIndicator size="small" color="#22C55E" />
-                <Text className="text-gray-500 text-sm text-center">
+                <Text className="text-gray-500 text-sm ml-2">
                   Uploading images...
                 </Text>
               </View>
             )}
+            <Text className="text-xs text-gray-500 mt-1">
+              First image will be used as main thumbnail. Maximum 5 images.
+            </Text>
           </View>
 
-          {/* Form Fields */}
-          <View>
+          {/* Basic Information */}
+          <View className="border border-gray-200 rounded-lg p-4">
+            <Text className="font-medium text-gray-700 mb-4">
+              Basic Information
+            </Text>
+
             {/* Product Name */}
-            <View className="mb-5">
+            <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 mb-2">
                 Product Name *
               </Text>
@@ -659,7 +1309,6 @@ export default function ProductFormScreen() {
                     className={`border rounded-lg px-4 py-3 text-gray-900 ${
                       errors.name ? "border-red-400" : "border-gray-300"
                     }`}
-                    style={{ color: "black" }}
                   />
                 )}
               />
@@ -670,588 +1319,8 @@ export default function ProductFormScreen() {
               )}
             </View>
 
-            {/* Category */}
-            <View className="mb-5">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Category
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowCategoryModal(true)}
-                className="border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between"
-              >
-                <Text className="text-gray-900">
-                  {selectedCategory
-                    ? selectedCategory.name +
-                      (selectedCategory.parent_name
-                        ? ` (${selectedCategory.parent_name})`
-                        : "")
-                    : "Select a category"}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color="#6B7280" />
-              </TouchableOpacity>
-
-              {selectedCategory && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedCategory(null);
-                    setValue("category_id", "");
-                  }}
-                  className="mt-2 flex-row items-center"
-                >
-                  <Ionicons name="close-circle" size={16} color="#EF4444" />
-                  <Text className="text-red-500 text-sm ml-1">
-                    Clear Selection
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Category Selection Modal */}
-              <Modal
-                visible={showCategoryModal}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setShowCategoryModal(false)}
-              >
-                <View className="flex-1 bg-black/50 justify-end">
-                  <View className="bg-white rounded-t-3xl max-h-3/4">
-                    <View className="p-6 border-b border-gray-200">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-xl font-bold text-gray-900">
-                          Select Category
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => setShowCategoryModal(false)}
-                          className="p-2"
-                        >
-                          <Ionicons name="close" size={24} color="#6B7280" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {nestedCategories.length > 0 ? (
-                      <FlatList
-                        data={flattenCategories(nestedCategories)}
-                        renderItem={renderCategoryItem}
-                        keyExtractor={(item) => item.id}
-                        showsVerticalScrollIndicator={false}
-                        className="max-h-96"
-                      />
-                    ) : (
-                      <View className="p-6 items-center">
-                        <Text className="text-gray-500">
-                          No categories available
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </Modal>
-            </View>
-
-            {/* Source Type */}
-            <View className="mb-5">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Product Source *
-              </Text>
-              <View className="flex-row gap-2 mb-3">
-                {[
-                  { value: "supplier", label: "Supplier", icon: "🏢" },
-                  {
-                    value: "coop-produced",
-                    label: "Coop Produced",
-                    icon: "🏭",
-                  },
-                  { value: "member", label: "Member", icon: "👨‍🌾" },
-                  { value: "donation", label: "Donation", icon: "🎁" },
-                ].map((type) => (
-                  <Controller
-                    key={type.value}
-                    control={control}
-                    name="source_type"
-                    render={({ field: { onChange, value } }) => (
-                      <TouchableOpacity
-                        onPress={() => {
-                          onChange(type.value);
-                          if (type.value !== "supplier") {
-                            setSelectedSupplier(null);
-                            setValue("supplier_id", "");
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-full border flex-row items-center ${
-                          value === type.value
-                            ? "bg-green-100 border-green-500"
-                            : "bg-gray-100 border-gray-300"
-                        }`}
-                      >
-                        <Text className="mr-1">{type.icon}</Text>
-                        <Text
-                          className={`font-medium ${
-                            value === type.value
-                              ? "text-green-700"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          {type.label}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  />
-                ))}
-              </View>
-
-              {/* Supplier Selection (only for supplier source type) */}
-              {sourceType === "supplier" && (
-                <View className="mt-3">
-                  <Text className="text-sm font-medium text-gray-700 mb-2">
-                    Select Supplier *
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowSupplierModal(true)}
-                    className="border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between"
-                  >
-                    <Text className="text-gray-900">
-                      {selectedSupplier?.name || "Select supplier..."}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  <Controller
-                    control={control}
-                    name="supplier_id"
-                    rules={{
-                      required:
-                        sourceType === "supplier"
-                          ? "Supplier is required"
-                          : false,
-                    }}
-                    render={({ field: { onChange } }) => (
-                      <TextInput style={{ display: "none" }} />
-                    )}
-                  />
-                  {errors.supplier_id && (
-                    <Text className="text-red-500 text-sm mt-1">
-                      {errors.supplier_id.message}
-                    </Text>
-                  )}
-
-                  {/* Supplier Selection Modal */}
-                  <Modal
-                    visible={showSupplierModal}
-                    animationType="slide"
-                    transparent={true}
-                    onRequestClose={() => setShowSupplierModal(false)}
-                  >
-                    <View className="flex-1 bg-black/50 justify-end">
-                      <View className="bg-white rounded-t-3xl max-h-3/4">
-                        <View className="p-6 border-b border-gray-200">
-                          <View className="flex-row items-center justify-between">
-                            <Text className="text-xl font-bold text-gray-900">
-                              Select Supplier
-                            </Text>
-                            <TouchableOpacity
-                              onPress={() => setShowSupplierModal(false)}
-                              className="p-2"
-                            >
-                              <Ionicons
-                                name="close"
-                                size={24}
-                                color="#6B7280"
-                              />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        {suppliers.length > 0 ? (
-                          <FlatList
-                            data={suppliers}
-                            renderItem={renderSupplierItem}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            className="max-h-96"
-                          />
-                        ) : (
-                          <View className="p-6 items-center">
-                            <Text className="text-gray-500">
-                              No suppliers available
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </Modal>
-                </View>
-              )}
-            </View>
-
-            {/* Unit Type and Package Size */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Unit Type *
-                </Text>
-                <Controller
-                  control={control}
-                  name="unit_type"
-                  rules={{ required: "Unit type is required" }}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="e.g., kg, pcs, box"
-                      className={`border rounded-lg px-4 py-3 text-gray-900 ${
-                        errors.unit_type ? "border-red-400" : "border-gray-300"
-                      }`}
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-                {errors.unit_type && (
-                  <Text className="text-red-500 text-sm mt-1">
-                    {errors.unit_type.message}
-                  </Text>
-                )}
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Package Size
-                </Text>
-                <Controller
-                  control={control}
-                  name="package_size"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="e.g., 250g, 1kg"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-            </View>
-
-            {/* Price and Cost */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Cost Price *
-                </Text>
-                <Controller
-                  control={control}
-                  name="cost_price"
-                  rules={{
-                    required: "Cost price is required",
-                    pattern: {
-                      value: /^\d+(\.\d{1,2})?$/,
-                      message: "Enter a valid price",
-                    },
-                    validate: (value) => {
-                      const sellingPrice = watch("selling_price");
-                      if (
-                        sellingPrice &&
-                        parseFloat(value) > parseFloat(sellingPrice)
-                      ) {
-                        return "Cost price cannot be higher than selling price";
-                      }
-                      return true;
-                    },
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                      className={`border rounded-lg px-4 py-3 text-gray-900 ${
-                        errors.cost_price ? "border-red-400" : "border-gray-300"
-                      }`}
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-                {errors.cost_price && (
-                  <Text className="text-red-500 text-sm mt-1">
-                    {errors.cost_price.message}
-                  </Text>
-                )}
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Selling Price *
-                </Text>
-                <Controller
-                  control={control}
-                  name="selling_price"
-                  rules={{
-                    required: "Selling price is required",
-                    pattern: {
-                      value: /^\d+(\.\d{1,2})?$/,
-                      message: "Enter a valid price",
-                    },
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="0.00"
-                      keyboardType="decimal-pad"
-                      className={`border rounded-lg px-4 py-3 text-gray-900 ${
-                        errors.selling_price
-                          ? "border-red-400"
-                          : "border-gray-300"
-                      }`}
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-                {errors.selling_price && (
-                  <Text className="text-red-500 text-sm mt-1">
-                    {errors.selling_price.message}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/* Stock Levels */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Current Stock *
-                </Text>
-                <Controller
-                  control={control}
-                  name="current_stock"
-                  rules={{
-                    required: "Current stock is required",
-                    pattern: {
-                      value: /^\d+$/,
-                      message: "Enter a valid number",
-                    },
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="0"
-                      keyboardType="number-pad"
-                      className={`border rounded-lg px-4 py-3 text-gray-900 ${
-                        errors.current_stock
-                          ? "border-red-400"
-                          : "border-gray-300"
-                      }`}
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-                {errors.current_stock && (
-                  <Text className="text-red-500 text-sm mt-1">
-                    {errors.current_stock.message}
-                  </Text>
-                )}
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Min Stock Level *
-                </Text>
-                <Controller
-                  control={control}
-                  name="min_stock_level"
-                  rules={{
-                    required: "Minimum stock level is required",
-                    pattern: {
-                      value: /^\d+$/,
-                      message: "Enter a valid number",
-                    },
-                  }}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="10"
-                      keyboardType="number-pad"
-                      className={`border rounded-lg px-4 py-3 text-gray-900 ${
-                        errors.min_stock_level
-                          ? "border-red-400"
-                          : "border-gray-300"
-                      }`}
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-                {errors.min_stock_level && (
-                  <Text className="text-red-500 text-sm mt-1">
-                    {errors.min_stock_level.message}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/* Max Stock and Expiry Date */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Max Stock Level
-                </Text>
-                <Controller
-                  control={control}
-                  name="max_stock_level"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="Optional"
-                      keyboardType="number-pad"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Expiry Date
-                </Text>
-                <Controller
-                  control={control}
-                  name="expiry_date"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="YYYY-MM-DD"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-            </View>
-
-            {/* Brand and Barcode */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Brand
-                </Text>
-                <Controller
-                  control={control}
-                  name="brand"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="Brand name"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Barcode/SKU
-                </Text>
-                <Controller
-                  control={control}
-                  name="barcode"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="Scan or enter barcode"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-            </View>
-
-            {/* Location and Batch Number */}
-            <View className="flex-row gap-5 mb-5">
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Storage Location
-                </Text>
-                <Controller
-                  control={control}
-                  name="location"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="e.g., Warehouse A, Shelf B"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Batch Number
-                </Text>
-                <Controller
-                  control={control}
-                  name="batch_number"
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder="Batch/Lot number"
-                      className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                      style={{ color: "black" }}
-                    />
-                  )}
-                />
-              </View>
-            </View>
-
-            {/* Product Options */}
-            <View className="mb-5 space-y-4">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm font-medium text-gray-700">
-                  Requires Refrigeration
-                </Text>
-                <Controller
-                  control={control}
-                  name="requires_refrigeration"
-                  render={({ field: { onChange, value } }) => (
-                    <Switch
-                      value={value}
-                      onValueChange={onChange}
-                      trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
-                    />
-                  )}
-                />
-              </View>
-
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm font-medium text-gray-700">
-                  Is Fragile Product
-                </Text>
-                <Controller
-                  control={control}
-                  name="is_fragile"
-                  render={({ field: { onChange, value } }) => (
-                    <Switch
-                      value={value}
-                      onValueChange={onChange}
-                      trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
-                    />
-                  )}
-                />
-              </View>
-            </View>
-
             {/* Description */}
-            <View className="mb-5">
+            <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 mb-2">
                 Description
               </Text>
@@ -1266,48 +1335,327 @@ export default function ProductFormScreen() {
                     multiline
                     numberOfLines={3}
                     className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                    style={{ color: "black", textAlignVertical: "top" }}
+                    style={{ textAlignVertical: "top", minHeight: 80 }}
                   />
                 )}
               />
             </View>
 
-            {/* Storage Instructions */}
-            <View className="mb-5">
+            {/* Category */}
+            <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 mb-2">
-                Storage Instructions
+                Category *
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCategoryModal(true)}
+                className={`border rounded-lg px-4 py-3 flex-row items-center justify-between ${
+                  errors.category_id ? "border-red-400" : "border-gray-300"
+                }`}
+              >
+                <Text
+                  className={`text-gray-900 ${!selectedCategory ? "text-gray-400" : ""}`}
+                >
+                  {selectedCategory
+                    ? selectedCategory.name
+                    : "Select a category"}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+              {errors.category_id && (
+                <Text className="text-red-500 text-sm mt-1">
+                  {errors.category_id.message}
+                </Text>
+              )}
+
+              {selectedCategory && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedCategory(null);
+                    setValue("category_id", "");
+                    setProductAttributes([]);
+                  }}
+                  className="mt-2 flex-row items-center"
+                >
+                  <Ionicons name="close-circle" size={16} color="#EF4444" />
+                  <Text className="text-red-500 text-sm ml-1">
+                    Clear Selection
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {watchCategoryId && attributes.length > 0 && (
+                <View className="mt-2 flex-row items-center">
+                  <Ionicons name="list" size={16} color="#3B82F6" />
+                  <Text className="text-blue-500 text-sm ml-1">
+                    {attributes.length} attributes available
+                  </Text>
+                </View>
+              )}
+
+              {/* Category Selection Modal */}
+              <Modal
+                visible={showCategoryModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowCategoryModal(false)}
+              >
+                <View className="flex-1 bg-black/50 justify-end">
+                  <View className="bg-white rounded-t-3xl max-h-3/4">
+                    <View className="p-4 border-b border-gray-200">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-lg font-bold text-gray-900">
+                          Select Category
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setShowCategoryModal(false)}
+                          className="p-2"
+                        >
+                          <Ionicons name="close" size={24} color="#6B7280" />
+                        </TouchableOpacity>
+                      </View>
+                      <TextInput
+                        placeholder="Search categories..."
+                        className="border border-gray-300 rounded-lg px-4 py-2 mt-2"
+                      />
+                    </View>
+
+                    {nestedCategories.length > 0 ? (
+                      <FlatList
+                        data={flattenCategories(nestedCategories)}
+                        renderItem={renderCategoryItem}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                        className="max-h-80"
+                      />
+                    ) : (
+                      <View className="p-6 items-center">
+                        <ActivityIndicator size="small" color="#22C55E" />
+                        <Text className="text-gray-500 mt-2">
+                          Loading categories...
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </Modal>
+            </View>
+
+            {/* Unit Type */}
+            <View className="mb-4">
+              <Text className="text-sm font-medium text-gray-700 mb-2">
+                Unit Type *
               </Text>
               <Controller
                 control={control}
-                name="storage_instructions"
+                name="unit_type"
+                rules={{ required: "Unit type is required" }}
                 render={({ field: { onChange, value } }) => (
-                  <TextInput
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Special storage instructions..."
-                    multiline
-                    numberOfLines={2}
-                    className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900"
-                    style={{ color: "black", textAlignVertical: "top" }}
-                  />
+                  <TouchableOpacity
+                    onPress={() => setShowUnitTypeModal(true)}
+                    className={`border rounded-lg px-4 py-3 flex-row items-center justify-between ${
+                      errors.unit_type ? "border-red-400" : "border-gray-300"
+                    }`}
+                  >
+                    <Text className="text-gray-900">
+                      {value
+                        ? unitTypes.find((u) => u.value === value)?.label ||
+                          value.charAt(0).toUpperCase() + value.slice(1)
+                        : "Select unit type"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                  </TouchableOpacity>
                 )}
               />
+              {errors.unit_type && (
+                <Text className="text-red-500 text-sm mt-1">
+                  {errors.unit_type.message}
+                </Text>
+              )}
             </View>
+
+            {/* Product Flags */}
+            <View>
+              <Text className="text-sm font-medium text-gray-700 mb-3">
+                Product Flags
+              </Text>
+              <View className="space-y-3">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <View className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></View>
+                    <Text className="text-gray-700">Featured</Text>
+                  </View>
+                  <Controller
+                    control={control}
+                    name="is_featured"
+                    render={({ field: { onChange, value } }) => (
+                      <Switch
+                        value={value}
+                        onValueChange={onChange}
+                        trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
+                      />
+                    )}
+                  />
+                </View>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mr-2"></View>
+                    <Text className="text-gray-700">New Arrival</Text>
+                  </View>
+                  <Controller
+                    control={control}
+                    name="is_new_arrival"
+                    render={({ field: { onChange, value } }) => (
+                      <Switch
+                        value={value}
+                        onValueChange={onChange}
+                        trackColor={{ false: "#D1D5DB", true: "#3B82F6" }}
+                      />
+                    )}
+                  />
+                </View>
+                {isEditMode && (
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <View className="w-2 h-2 bg-green-500 rounded-full mr-2"></View>
+                      <Text className="text-gray-700">Best Seller</Text>
+                    </View>
+                    <Controller
+                      control={control}
+                      name="is_best_seller"
+                      render={({ field: { onChange, value } }) => (
+                        <Switch
+                          value={value}
+                          onValueChange={onChange}
+                          trackColor={{ false: "#D1D5DB", true: "#22C55E" }}
+                        />
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Product Attributes Section */}
+          <View className="border border-gray-200 rounded-lg p-4">
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text className="font-medium text-gray-700">
+                  Product Attributes
+                </Text>
+                <Text className="text-xs text-gray-500 mt-1">
+                  Add variants like sizes, colors, etc.
+                </Text>
+              </View>
+              {productAttributes.length > 0 && (
+                <View className="bg-gray-100 px-3 py-1 rounded-full">
+                  <Text className="text-sm text-gray-700">
+                    {productAttributes.length} added
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {!watchCategoryId ? (
+              <View className="border-2 border-dashed border-gray-300 rounded-lg p-6 items-center">
+                <Ionicons name="tag-outline" size={32} color="#9CA3AF" />
+                <Text className="text-gray-600 font-medium mt-2">
+                  Select a category first
+                </Text>
+                <Text className="text-sm text-gray-500 text-center mt-1">
+                  Choose a category above to see available attributes
+                </Text>
+              </View>
+            ) : attributes.length === 0 ? (
+              <View className="border-2 border-dashed border-gray-300 rounded-lg p-6 items-center">
+                <Ionicons name="tag-outline" size={32} color="#9CA3AF" />
+                <Text className="text-gray-600 font-medium mt-2">
+                  No attributes available
+                </Text>
+                <Text className="text-sm text-gray-500 text-center mt-1">
+                  This category has no predefined attributes
+                </Text>
+              </View>
+            ) : productAttributes.length === 0 ? (
+              <View className="border-2 border-dashed border-gray-300 rounded-lg p-6 items-center">
+                <Ionicons name="list-outline" size={32} color="#9CA3AF" />
+                <Text className="text-gray-600 font-medium mt-2">
+                  Add attributes for this product
+                </Text>
+                <Text className="text-sm text-gray-500 text-center mt-1">
+                  {availableAttributes.length} attributes available
+                </Text>
+                <TouchableOpacity
+                  onPress={handleAddAttribute}
+                  className="mt-4 bg-blue-600 px-6 py-3 rounded-lg"
+                  disabled={availableAttributes.length === 0}
+                >
+                  <Text className="text-white font-medium">
+                    Add First Attribute
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={productAttributes}
+                  renderItem={renderAttributeItem}
+                  keyExtractor={(item, index) => index.toString()}
+                  scrollEnabled={false}
+                />
+
+                {/* Attribute Summary */}
+                <View className="bg-gray-50 rounded-lg p-3 mb-4">
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-sm text-gray-600">
+                      Total Variants:
+                    </Text>
+                    <Text className="font-medium">
+                      {productAttributes.length}
+                    </Text>
+                  </View>
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-sm text-gray-600">Total Stock:</Text>
+                    <Text className="font-medium">{totalStock}</Text>
+                  </View>
+                  <View className="flex-row justify-between">
+                    <Text className="text-sm text-gray-600">Total Value:</Text>
+                    <Text className="font-medium text-green-600">
+                      ₱{totalValue.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleAddAttribute}
+                  className="py-3 rounded-lg bg-blue-600 flex-row items-center justify-center space-x-2"
+                >
+                  <Ionicons name="add" size={20} color="white" />
+                  <Text className="text-white font-medium">
+                    Add Another Attribute
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit(onSubmit)}
-            disabled={loading || uploadingImage}
-            className={`py-4 rounded-lg mt-6 ${
-              loading || uploadingImage ? "bg-green-300" : "bg-green-600"
+            disabled={
+              loading || uploadingImage || productAttributes.length === 0
+            }
+            className={`py-4 rounded-lg mt-4 ${
+              loading || uploadingImage || productAttributes.length === 0
+                ? "bg-green-300"
+                : "bg-green-600"
             }`}
           >
             {loading || uploadingImage ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text className="text-white text-center font-bold text-lg">
-                {isEditMode ? "Update Product" : "Add Product"}
+                {isEditMode ? "Update Product" : "Create Product"}
               </Text>
             )}
           </TouchableOpacity>
@@ -1316,7 +1664,7 @@ export default function ProductFormScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             disabled={loading || uploadingImage}
-            className="py-3 rounded-lg border border-gray-300 mt-2"
+            className="py-3 rounded-lg border border-gray-300"
           >
             <Text className="text-gray-700 text-center font-medium">
               Cancel
@@ -1324,6 +1672,29 @@ export default function ProductFormScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Attribute Modal */}
+      {showAttributeModal && (
+        <AttributeModal
+          attribute={
+            editingAttributeIndex !== null
+              ? productAttributes[editingAttributeIndex]
+              : null
+          }
+          availableAttributes={availableAttributes}
+          attributeValues={attributeValues}
+          onSubmit={handleAttributeSubmit}
+          onClose={() => {
+            setShowAttributeModal(false);
+            setEditingAttributeIndex(null);
+            setCustomAttributeValue("");
+            setShowAttributeValueDropdown(false);
+          }}
+        />
+      )}
+
+      {/* Unit Type Modal */}
+      <UnitTypeModal />
     </KeyboardAvoidingView>
   );
 }

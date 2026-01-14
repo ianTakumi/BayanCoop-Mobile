@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
+import { useDispatch } from "react-redux";
+import { setOnboarded } from "@/redux/slices/authSlice";
 
 const slides = [
   {
@@ -41,11 +43,13 @@ const Onboarding: React.FC = () => {
   const [index, setIndex] = useState<number>(0);
   const router = useRouter();
   const current = slides[index];
+  const dispatch = useDispatch();
 
   const nextSlide = () => {
     if (index < slides.length - 1) {
       setIndex(index + 1);
     } else {
+      dispatch(setOnboarded());
       router.push("/RegisterScreen");
     }
   };

@@ -10,8 +10,21 @@ import { useRouter } from "expo-router";
 export default function OwnerHomePage() {
   const user = useSelector((state) => state.auth.user);
   const coop = useSelector((state) => state.cooperative.cooperativeLoggedIn);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const router = useRouter();
+
+  const fetchProducts = async () => {
+    await client.get(`/products/${coop?.id}`).then((res) => {
+      setLoading(false);
+      setProducts(res.data.data);
+    });
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   // Pending Approval Screen
   if (coop && coop.isApproved === false) {
@@ -158,9 +171,6 @@ export default function OwnerHomePage() {
 
       {/* Business Performance Metrics */}
       <View className="px-6 mt-6">
-        <Text className="text-xl font-bold text-gray-800 mb-4">
-          Today&apos;s Performance
-        </Text>
         <View className="flex-row flex-wrap justify-between">
           {/* Total Sales */}
           <View className="bg-white rounded-xl p-4 w-[48%] mb-4 shadow-sm border-l-4 border-green-500">
@@ -183,7 +193,7 @@ export default function OwnerHomePage() {
             <View className="flex-row items-center justify-between">
               <View>
                 <Text className="text-2xl font-bold text-gray-800">24</Text>
-                <Text className="text-gray-500 text-sm mt-1">Orders Today</Text>
+                <Text className="text-gray-500 text-sm mt-1">Total Orders</Text>
               </View>
               <Ionicons name="cart-outline" size={28} color="#3B82F6" />
             </View>
@@ -192,18 +202,41 @@ export default function OwnerHomePage() {
             </Text>
           </View>
 
-          {/* Products Available */}
+          {/* Products Card - Mobile Version */}
           <View className="bg-white rounded-xl p-4 w-[48%] shadow-sm border-l-4 border-purple-500">
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-2xl font-bold text-gray-800">156</Text>
+                <Text className="text-2xl font-bold text-gray-800">
+                  {products.length}
+                </Text>
                 <Text className="text-gray-500 text-sm mt-1">Products</Text>
               </View>
               <Ionicons name="cube-outline" size={28} color="#8B5CF6" />
             </View>
-            <Text className="text-red-600 text-xs font-medium mt-2">
-              12 low in stock
-            </Text>
+
+            {(() => {
+              // Calculate low stock products
+              const lowStockProducts = products.filter((product) => {
+                const totalStock =
+                  product.products_attributes?.reduce(
+                    (sum, attr) => sum + (attr.stock || 0),
+                    0
+                  ) || 0;
+                return totalStock <= 10;
+              });
+
+              const lowStockCount = lowStockProducts.length;
+
+              return lowStockCount > 0 ? (
+                <Text className="text-xs text-red-600 font-medium mt-2">
+                  {lowStockCount} low in stock
+                </Text>
+              ) : (
+                <Text className="text-xs text-green-600 font-medium mt-2">
+                  All stocks good
+                </Text>
+              );
+            })()}
           </View>
 
           {/* Customer Satisfaction */}
@@ -228,7 +261,12 @@ export default function OwnerHomePage() {
           Business Management
         </Text>
         <View className="flex-row flex-wrap justify-between">
-          <TouchableOpacity className="bg-white rounded-xl p-4 w-[48%] mb-4 shadow-sm items-center border border-gray-200" onPress={() => router.push("/cooperatives/(drawers)/(tabs)/Inventory")} >
+          <TouchableOpacity
+            className="bg-white rounded-xl p-4 w-[48%] mb-4 shadow-sm items-center border border-gray-200"
+            onPress={() =>
+              router.push("/cooperatives/(drawers)/(tabs)/Inventory")
+            }
+          >
             <View className="bg-green-100 p-3 rounded-full">
               <Ionicons name="add-circle-outline" size={28} color="#10B981" />
             </View>
@@ -237,42 +275,6 @@ export default function OwnerHomePage() {
             </Text>
             <Text className="text-gray-500 text-xs text-center mt-1">
               New inventory
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-white rounded-xl p-4 w-[48%] mb-4 shadow-sm items-center border border-gray-200">
-            <View className="bg-blue-100 p-3 rounded-full">
-              <Ionicons name="pricetags-outline" size={28} color="#3B82F6" />
-            </View>
-            <Text className="text-gray-800 font-medium mt-2 text-center">
-              Manage Inventory
-            </Text>
-            <Text className="text-gray-500 text-xs text-center mt-1">
-              Update stocks
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-white rounded-xl p-4 w-[48%] shadow-sm items-center border border-gray-200">
-            <View className="bg-orange-100 p-3 rounded-full">
-              <Ionicons name="trending-up-outline" size={28} color="#F59E0B" />
-            </View>
-            <Text className="text-gray-800 font-medium mt-2 text-center">
-              Sales Reports
-            </Text>
-            <Text className="text-gray-500 text-xs text-center mt-1">
-              View analytics
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-white rounded-xl p-4 w-[48%] shadow-sm items-center border border-gray-200">
-            <View className="bg-purple-100 p-3 rounded-full">
-              <Ionicons name="people-outline" size={28} color="#8B5CF6" />
-            </View>
-            <Text className="text-gray-800 font-medium mt-2 text-center">
-              Customers
-            </Text>
-            <Text className="text-gray-500 text-xs text-center mt-1">
-              Manage clients
             </Text>
           </TouchableOpacity>
         </View>

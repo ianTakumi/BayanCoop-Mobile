@@ -7,6 +7,10 @@ export default function _layout() {
       <Stack.Screen name="Contact" options={{ headerShown: false }} />
       <Stack.Screen name="AboutUs" options={{ headerShown: false }} />
       <Stack.Screen name="Product" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="EditCooperativeProfile"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

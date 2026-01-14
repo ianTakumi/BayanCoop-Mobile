@@ -9,31 +9,42 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  access_token: string | null;
   isAuthenticated: boolean;
   hasOnboarded: boolean;
+  refresh_token: string | null;
 }
 
 const initialState: AuthState = {
   user: null,
-  token: null,
+  access_token: null,
   isAuthenticated: false,
   hasOnboarded: false,
+  refresh_token: null,
 };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    login: (state, action: PayloadAction<{ user: User; token: string }>) => {
+    login: (
+      state,
+      action: PayloadAction<{
+        user: User;
+        access_token: string;
+        refresh_token: string;
+      }>
+    ) => {
       state.user = action.payload.user;
-      state.token = action.payload.token;
+      state.access_token = action.payload.access_token;
+      state.refresh_token = action.payload.refresh_token;
       state.isAuthenticated = true;
     },
     logout: (state) => {
       state.user = null;
-      state.token = null;
+      state.access_token = null;
       state.isAuthenticated = false;
+      state.refresh_token = null;
     },
     setOnboarded: (state) => {
       state.hasOnboarded = true;
@@ -42,13 +53,14 @@ const authSlice = createSlice({
       state,
       action: PayloadAction<{
         user: User | null;
-        token: string | null;
+        access_token: string | null;
+        refresh_token: string | null;
         hasOnboarded: boolean;
       }>
     ) => {
       state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.isAuthenticated = !!action.payload.token;
+      state.refresh_token = action.payload.refresh_token;
+      state.isAuthenticated = !!action.payload.access_token;
       state.hasOnboarded = action.payload.hasOnboarded;
     },
     updateProfile: (state, action: PayloadAction<Partial<User>>) => {
@@ -59,9 +71,28 @@ const authSlice = createSlice({
         };
       }
     },
+    refreshSession: (
+      // FIX 2: Properly typed and fixed syntax
+      state,
+      action: PayloadAction<{
+        access_token: string;
+        refresh_token?: string;
+      }>
+    ) => {
+      state.access_token = action.payload.access_token;
+      if (action.payload.refresh_token) {
+        state.refresh_token = action.payload.refresh_token;
+      }
+    },
   },
 });
 
-export const { login, logout, setOnboarded, restoreAuth, updateProfile } =
-  authSlice.actions;
+export const {
+  login,
+  logout,
+  setOnboarded,
+  restoreAuth,
+  updateProfile,
+  refreshSession,
+} = authSlice.actions;
 export default authSlice.reducer;

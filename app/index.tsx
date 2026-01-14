@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View, Text } from "react-native";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Index() {
   const router = useRouter();
@@ -18,7 +17,7 @@ export default function Index() {
   );
 
   useEffect(() => {
-    const determineInitialScreen = async () => {
+    const determineInitialScreen = () => {
       // No need for setTimeout - direct logic
       if (!hasOnboarded) {
         router.replace("/Onboarding");
@@ -32,31 +31,13 @@ export default function Index() {
 
       // Authenticated user
       if (user?.role === "user") {
-        // Check for stored preference first (for returning users)
-        try {
-          const storedProfile =
-            await AsyncStorage.getItem("@preferred_profile");
-
-          // Priority: 1. Stored preference 2. Current state 3. Default to user
-          const shouldShowCoop = storedProfile === "coop" || coop;
-
-          if (shouldShowCoop) {
-            await AsyncStorage.setItem("@preferred_profile", "coop");
-            router.replace("/cooperatives/(drawers)/(tabs)/Index");
-          } else {
-            await AsyncStorage.setItem("@preferred_profile", "user");
-            router.replace("/users/(drawers)/(tabs)");
-          }
-        } catch (error) {
-          // Fallback if AsyncStorage fails
-          if (coop) {
-            router.replace("/cooperatives/(drawers)/(tabs)/Index");
-          } else {
-            router.replace("/users/(drawers)/(tabs)");
-          }
+        // SIMPLE LOGIC: If may coop, go to coop; if wala, go to user
+        if (coop) {
+          router.replace("/cooperatives/(drawers)/(tabs)/Index");
+        } else {
+          router.replace("/users/(drawers)/(tabs)");
         }
       } else if (user?.role === "supplier") {
-        // Direct cooperative user (not switching)
         router.replace("/supplier/(drawers)/(tabs)/Index");
       } else {
         // Other roles or undefined

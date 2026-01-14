@@ -12,6 +12,7 @@ export default function _layout() {
       />
       <Stack.Screen name="AboutUs" options={{ headerShown: false }} />
       <Stack.Screen name="UpdateProfile" options={{ headerShown: false }} />
+      <Stack.Screen name="UpdatePassword" options={{ headerShown: false }} />
     </Stack>
   );
 }

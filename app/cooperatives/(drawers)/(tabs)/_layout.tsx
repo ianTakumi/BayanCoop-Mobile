@@ -19,6 +19,7 @@ export default function TabLayout() {
           borderTopColor: "#E5E7EB",
           backgroundColor: "#fff",
           paddingBottom: 5,
+          display: route.name === "Events" ? "none" : "flex", // Hide for Events
         },
         tabBarIcon: ({ color, size }) => {
           switch (route.name) {
@@ -32,6 +33,10 @@ export default function TabLayout() {
               return <Ionicons name="people-outline" size={22} color={color} />;
             case "Profile":
               return <Ionicons name="person-outline" size={22} color={color} />;
+            case "Events":
+              return (
+                <Ionicons name="calendar-outline" size={22} color={color} />
+              );
             default:
               return null;
           }
@@ -39,6 +44,16 @@ export default function TabLayout() {
       })}
     >
       <Tabs.Screen name="Index" options={{ title: "Home" }} />
+
+      {/* Events - HIDDEN FROM TAB BAR */}
+      <Tabs.Screen
+        name="Events"
+        options={{
+          title: "Events",
+          tabBarButton: () => null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
 
       <Tabs.Screen
         name="Members"

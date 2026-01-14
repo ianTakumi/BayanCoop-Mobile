@@ -1,10 +1,71 @@
 import { Drawer } from "expo-router/drawer";
 import { Ionicons } from "@expo/vector-icons";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { useRouter } from "expo-router";
+import { View, TouchableOpacity, Text, Alert } from "react-native";
+import { setCooperativeLoggedIn } from "@/redux/slices/coopSlice";
 
 export default function DrawerLayout() {
   const coop = useSelector((state) => state.cooperative.cooperativeLoggedIn);
   const isApproved = coop?.isApproved;
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          // Clear cooperative data
+          dispatch(setCooperativeLoggedIn(null));
+          // Navigate to login screen
+          router.replace("/(auth)/login");
+        },
+      },
+    ]);
+  };
+
+  const switchToUserProfile = () => {
+    // Clear cooperative data and switch back to user profile
+    dispatch(setCooperativeLoggedIn(null));
+    router.replace("/users/(drawers)/(tabs)");
+  };
+
+  const confirmSwitchProfile = () => {
+    Alert.alert(
+      "Switch to User Profile",
+      "Are you sure you want to switch back to your personal profile?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Switch",
+          onPress: switchToUserProfile,
+        },
+      ]
+    );
+  };
+
+  const confirmLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: handleLogout,
+      },
+    ]);
+  };
 
   return (
     <Drawer
@@ -20,7 +81,7 @@ export default function DrawerLayout() {
         drawerLabelStyle: {
           fontSize: 16,
           fontWeight: "500",
-          marginLeft: -16,
+          marginLeft: 0,
         },
         drawerItemStyle: {
           borderRadius: 12,
@@ -39,6 +100,28 @@ export default function DrawerLayout() {
           drawerLabel: "Dashboard",
           drawerIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Events Screen */}
+      <Drawer.Screen
+        name="Events"
+        options={{
+          drawerLabel: "Events",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Articles Screen */}
+      <Drawer.Screen
+        name="Articles"
+        options={{
+          drawerLabel: "Articles",
+          drawerIcon: ({ color, size }) => (
+            <Ionicons name="newspaper-outline" size={size} color={color} />
           ),
         }}
       />

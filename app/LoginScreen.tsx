@@ -16,8 +16,9 @@ import {
   Keyboard,
   ActivityIndicator,
 } from "react-native";
-import { useDispatch } from "react-redux";
+import { useDispatch, UseSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
+import { useSelector } from "react-redux";
 
 const LoginScreen: React.FC = () => {
   const router = useRouter();
@@ -44,24 +45,21 @@ const LoginScreen: React.FC = () => {
     await client
       .post("/auth/user-login", trimmedData)
       .then((res) => {
-        if (res.status === 200 && res.data.user.role === "user") {
+        if (res.status === 200) {
+          const user = res.data.user;
           dispatch(
             login({
-              user: {
-                id: res.data.user.id,
-                first_name: res.data.user.first_name,
-                last_name: res.data.user.last_name,
-                email: res.data.user.email,
-                phone: res.data.user.phone,
-                role: res.data.user.role,
-              },
-              token: res.data.session.access_token,
+              user: res.data.user,
+              access_token: res.data.session.access_token,
+              refresh_token: res.data.session.refresh_token,
             })
           );
 
-          dispatch(setOnboarded());
-
-          router.replace("/users/(drawers)/(tabs)");
+          if (user.role === "user") {
+            router.replace("/users/(drawers)/(tabs)");
+          } else if (user.role === "supplier") {
+            router.replace("/supplier/(drawers)/(tabs)/Index");
+          }
         }
       })
       .catch((err) => {

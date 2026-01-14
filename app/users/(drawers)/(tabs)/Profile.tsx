@@ -1,11 +1,11 @@
 import { logout } from "@/redux/slices/authSlice";
-import { setCooperativeLoggedIn } from "@/redux/slices/coopSlice"; // Import the action
+import { setCooperativeLoggedIn } from "@/redux/slices/coopSlice";
 import ActionSheetHelper from "@/utils/ActionSheetHelper";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-import React, { useState, useEffect } from "react"; // Added useEffect
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   ScrollView,
@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-  Alert, // Added Alert
+  Alert,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import client from "@/utils/axiosInstance";
@@ -24,16 +24,17 @@ export default function Profile() {
   const router = useRouter();
   const dispatch = useDispatch();
   const [coop, setCoop] = useState(null);
-  const [loadingCoop, setLoadingCoop] = useState(false); // Added loading state
+  const [loadingCoop, setLoadingCoop] = useState(false);
 
-  // Mock user data
   const userData = {
     name: "Itunuoluwa Abidoye",
     username: "@itunuoluwa",
     email: "itunuoluwa@example.com",
   };
 
+  // Separate state for Face ID and Touch ID
   const [faceIdEnabled, setFaceIdEnabled] = React.useState(true);
+  const [touchIdEnabled, setTouchIdEnabled] = React.useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
 
@@ -53,7 +54,6 @@ export default function Profile() {
     });
   };
 
-  // Fetch coop details function
   const fetchCoopDetails = async () => {
     if (!user?.id) return;
 
@@ -64,13 +64,8 @@ export default function Profile() {
         console.log(res.status);
         const coopData = res.data.coop[0];
         setCoop(coopData);
-
-        // Dispatch to Redux store
         dispatch(setCooperativeLoggedIn(coopData));
-
-        // Navigate to cooperative dashboard
         router.push("/cooperatives/(drawers)/(tabs)/Index");
-
         console.log("Cooperative profile loaded successfully");
       } else {
         Alert.alert(
@@ -96,7 +91,6 @@ export default function Profile() {
     }
   };
 
-  // Optional: Pre-fetch coop data when component mounts
   useEffect(() => {
     if (user?.id) {
       // You can pre-fetch here or just fetch when button is clicked
@@ -167,7 +161,10 @@ export default function Profile() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200">
+          <TouchableOpacity
+            className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
+            onPress={() => router.push("/users/UpdatePassword")}
+          >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
                 <Ionicons
@@ -200,25 +197,28 @@ export default function Profile() {
             </Text>
           </View>
 
-          {/* Saved Beneficiary */}
-          <TouchableOpacity className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200">
+          {/* Face ID */}
+          <View className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200">
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
-                <FontAwesome name="user-o" size={18} color="#10B981" />
+                <Ionicons name="face-outline" size={20} color="#10B981" />
               </View>
               <View>
-                <Text className="text-gray-900 font-medium">
-                  Saved Beneficiary
-                </Text>
+                <Text className="text-gray-900 font-medium">Face ID</Text>
                 <Text className="text-gray-500 text-sm">
-                  Manage your saved account
+                  Unlock with facial recognition
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+            <Switch
+              value={faceIdEnabled}
+              onValueChange={setFaceIdEnabled}
+              trackColor={{ false: "#D1D5DB", true: "#10B981" }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
 
-          {/* Face ID / Touch ID */}
+          {/* Touch ID */}
           <View className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200">
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
@@ -230,16 +230,16 @@ export default function Profile() {
               </View>
               <View>
                 <Text className="text-gray-900 font-medium">
-                  Face ID / Touch ID
+                  Touch ID / Fingerprint
                 </Text>
                 <Text className="text-gray-500 text-sm">
-                  Manage your device security
+                  Unlock with fingerprint
                 </Text>
               </View>
             </View>
             <Switch
-              value={faceIdEnabled}
-              onValueChange={setFaceIdEnabled}
+              value={touchIdEnabled}
+              onValueChange={setTouchIdEnabled}
               trackColor={{ false: "#D1D5DB", true: "#10B981" }}
               thumbColor="#FFFFFF"
             />

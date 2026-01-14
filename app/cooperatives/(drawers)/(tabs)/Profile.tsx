@@ -130,7 +130,9 @@ export default function CoopProfile() {
           {/* Inventory Management */}
           <TouchableOpacity
             className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
-            onPress={() => router.push("/cooperative/Inventory")}
+            onPress={() =>
+              router.push("/cooperatives/(drawers)/(tabs)/Inventory")
+            }
           >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
@@ -138,7 +140,7 @@ export default function CoopProfile() {
               </View>
               <View>
                 <Text className="text-gray-900 font-medium">
-                  Inventory Management
+                  Product Management
                 </Text>
                 <Text className="text-gray-500 text-sm">
                   Manage products and stock levels
@@ -169,31 +171,10 @@ export default function CoopProfile() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
-          {/* Business Reports */}
-          <TouchableOpacity
-            className="px-6 py-4 flex-row items-center justify-between border-b border-gray-200"
-            onPress={() => router.push("/cooperative/Reports")}
-          >
-            <View className="flex-row items-center">
-              <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
-                <Ionicons name="bar-chart-outline" size={20} color="#10B981" />
-              </View>
-              <View>
-                <Text className="text-gray-900 font-medium">
-                  Business Reports
-                </Text>
-                <Text className="text-gray-500 text-sm">
-                  Analytics and performance reports
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-
           {/* Cooperative Settings */}
           <TouchableOpacity
             className="px-6 py-4 flex-row items-center justify-between"
-            onPress={() => router.push("/cooperative/Settings")}
+            onPress={() => router.push("/cooperatives/EditCooperativeProfile")}
           >
             <View className="flex-row items-center">
               <View className="bg-green-100 w-10 h-10 rounded-lg items-center justify-center mr-3">
