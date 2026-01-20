@@ -6,7 +6,7 @@ import { refreshSession } from "@/redux/slices/authSlice";
 const getBaseURL = () => {
   if (__DEV__) {
     // Development - using local IP
-    return "http://192.168.1.63:5000/api/v1";
+    return "http://192.168.1.62:5000/api/v1";
   } else {
     // Production - using your deployed server
     return "https://bayancoopserver.onrender.com/api/v1";

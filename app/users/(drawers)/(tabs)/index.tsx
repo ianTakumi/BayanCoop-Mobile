@@ -15,10 +15,13 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 import client from "../../../../utils/axiosInstance";
+import Toast from "react-native-toast-message";
 
 export default function Index() {
   const user = useSelector((state) => state.auth.user);
   const firstName = user?.first_name?.split(" ")[0] || "Guest";
+  const [products, setProducts] = useState([]);
+  const [communities, setCommunities] = useState([]);
   const router = useRouter();
 
   // Articles state
@@ -57,7 +60,40 @@ export default function Index() {
 
   useEffect(() => {
     fetchArticles();
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    await client
+      .get(`/products`)
+      .then((res) => {
+        setProducts(res.data.data || []);
+      })
+      .catch((err) => {
+        Toast.show({
+          type: "error",
+          text1: "Error fetching products",
+          text2: err.message,
+        });
+      });
+  };
+
+  const fetchCommunities = async () => {
+    await client
+      .get("/communities")
+      .then((res) => {
+        if (res.status === 200) {
+          setCommunities(res.data.data || []);
+        }
+      })
+      .catch((err) => {
+        Toast.show({
+          type: "error",
+          text1: "Error fetching communities",
+          text2: err.message,
+        });
+      });
+  };
 
   const fetchArticles = async (page = 1) => {
     try {
@@ -96,6 +132,8 @@ export default function Index() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchArticles(1);
+    fetchProducts();
+    fetchCommunities();
   };
 
   const loadMore = () => {
@@ -132,7 +170,12 @@ export default function Index() {
   const renderArticleItem = ({ item }) => (
     <TouchableOpacity
       className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100"
-      onPress={() => router.push(`/articles/${item.slug}`)}
+      onPress={() =>
+        router.push({
+          pathname: "/users/Article",
+          params: { slug: item.slug },
+        })
+      }
     >
       {item.featured_image_url && (
         <Image
@@ -179,7 +222,12 @@ export default function Index() {
 
         <TouchableOpacity
           className="flex-row items-center"
-          onPress={() => router.push(`/articles/${item.slug}`)}
+          onPress={() =>
+            router.push({
+              pathname: "/users/Article",
+              params: { slug: item.slug },
+            })
+          }
         >
           <Text className="text-green-600 font-medium text-sm mr-1">Read</Text>
           <Entypo name="chevron-right" size={16} color="#059669" />
@@ -268,13 +316,14 @@ export default function Index() {
           />
         </View>
 
-        {/* New Products Section */}
+        {/* Products Section */}
         <View className="mb-8">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xl font-bold text-green-600">
-              New Products
-            </Text>
-            <TouchableOpacity className="bg-green-100 px-4 py-2 rounded-lg">
+            <Text className="text-xl font-bold text-green-600">Products</Text>
+            <TouchableOpacity
+              className="bg-green-100 px-4 py-2 rounded-lg"
+              onPress={() => router.push("/users/(drawers)/(tabs)/Shop")}
+            >
               <Text className="text-green-700 font-medium">See all</Text>
             </TouchableOpacity>
           </View>
@@ -284,46 +333,60 @@ export default function Index() {
             showsHorizontalScrollIndicator={false}
             className="flex-row"
           >
-            {/* Product 1 - Apple */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🍎</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Apple
-              </Text>
-              <Text className="text-green-500 font-bold">P57.00</Text>
-            </View>
+            {/* Map through products data - max 5 products */}
+            {products.slice(0, 5).map((product) => {
+              // Get the first attribute as default for price display
+              const defaultAttribute = product.products_attributes[0];
+              const displayPrice = defaultAttribute
+                ? `P${defaultAttribute.price.toFixed(2)}`
+                : "P0.00";
 
-            {/* Product 2 - Rice Sack */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🍚</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Rice Sack
-              </Text>
-              <Text className="text-green-500 font-bold">P105.00</Text>
-            </View>
+              // Get the first image URL if available
+              const productImageUrl =
+                product.images && product.images.length > 0
+                  ? product.images[0]
+                  : null;
 
-            {/* Product 3 - Mango */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🥭</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Mango
-              </Text>
-              <Text className="text-green-500 font-bold">P15</Text>
-            </View>
+              return (
+                <View
+                  key={product.id}
+                  className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36"
+                >
+                  <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center overflow-hidden">
+                    {productImageUrl ? (
+                      <Image
+                        source={{ uri: productImageUrl }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View className="w-full h-full bg-gray-200 items-center justify-center">
+                        <Text className="text-gray-500">No Image</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-lg font-semibold text-gray-800 mb-1 truncate">
+                    {product.name}
+                  </Text>
+                  <Text className="text-green-500 font-bold">
+                    {displayPrice}
+                  </Text>
+                  {product.unit_type && (
+                    <Text className="text-xs text-gray-500 mt-1">
+                      per {product.unit_type}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
-        {/* Popular Products Section */}
+        {/* Community Section */}
         <View className="mb-8">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-xl font-bold text-green-600">
-              Popular Products
+              Communities
             </Text>
             <TouchableOpacity className="bg-green-100 px-4 py-2 rounded-lg">
               <Text className="text-green-700 font-medium">See all</Text>
@@ -335,38 +398,49 @@ export default function Index() {
             showsHorizontalScrollIndicator={false}
             className="flex-row"
           >
-            {/* Product 1 - Potato */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🥔</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Potato
-              </Text>
-              <Text className="text-green-500 font-bold">P15</Text>
-            </View>
-
-            {/* Product 2 - Bangus */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🐟</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Bangus
-              </Text>
-              <Text className="text-green-500 font-bold">P15</Text>
-            </View>
-
-            {/* Product 3 - Shrimp */}
-            <View className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36">
-              <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center">
-                <Text>🦐</Text>
-              </View>
-              <Text className="text-lg font-semibold text-gray-800 mb-1">
-                Shrimp
-              </Text>
-              <Text className="text-green-500 font-bold">P15</Text>
-            </View>
+            {/* Map through communities data */}
+            {communities.slice(0, 5).map((community) => {
+              return (
+                <TouchableOpacity
+                  key={community.id}
+                  className="bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100 w-36"
+                >
+                  <View className="bg-green-50 rounded-xl w-20 h-20 items-center justify-center mb-2 self-center overflow-hidden">
+                    {community.image_url ? (
+                      <Image
+                        source={{ uri: community.image_url }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View className="w-full h-full bg-gray-200 items-center justify-center">
+                        <Text className="text-gray-500 text-2xl">👥</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-lg font-semibold text-gray-800 mb-1 truncate">
+                    {community.name}
+                  </Text>
+                  <View className="flex-row items-center">
+                    <View className="flex-row items-center mr-3">
+                      <Text className="text-sm text-gray-600">👥</Text>
+                      <Text className="text-xs text-gray-600 ml-1">
+                        {community.member_count || 0}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center">
+                      <Text className="text-sm text-gray-600">📝</Text>
+                      <Text className="text-xs text-gray-600 ml-1">
+                        {community.post_count || 0}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-xs text-gray-500 mt-1 truncate">
+                    {community.category}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -378,7 +452,7 @@ export default function Index() {
             </Text>
             <TouchableOpacity
               className="bg-green-100 px-4 py-2 rounded-lg"
-              onPress={() => router.push("/articles")}
+              onPress={() => router.push("/users/Articles")}
             >
               <Text className="text-green-700 font-medium">See all</Text>
             </TouchableOpacity>

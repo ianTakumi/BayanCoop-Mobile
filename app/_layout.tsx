@@ -7,6 +7,7 @@ import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import "../index.css";
 import { persistor, store } from "../redux/store";
+import Toast from "react-native-toast-message";
 
 export default function RootLayout() {
   return (
@@ -32,6 +33,7 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <GlobalActionSheet />
       </PersistGate>
+      <Toast />
     </Provider>
   );
 }

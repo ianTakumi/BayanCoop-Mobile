@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View, Text } from "react-native";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
+import Toast from "react-native-toast-message";
 
 export default function Index() {
   const router = useRouter();
@@ -79,6 +80,7 @@ export default function Index() {
               ? `Loading ${coop ? "cooperative" : "user"} profile...`
               : "Loading..."}
       </Text>
+      <Toast />
     </View>
   );
 }

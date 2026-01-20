@@ -4,6 +4,7 @@ import client from "@/utils/axiosInstance";
 import {
   View,
   Text,
+  ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -19,23 +21,35 @@ export default function Orders() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const user = useSelector((state: any) => state.auth.user);
+  const params = useLocalSearchParams();
 
-  // Fetch orders only when component mounts
+  // Show success message if redirected from checkout
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [newOrder, setNewOrder] = useState(null);
+
   useEffect(() => {
-    if (user?.id) {
-      fetchOrders();
-    } else {
-      setLoading(false);
+    fetchOrders();
+
+    // Check for newly placed order from checkout
+    if (params.newlyPlacedOrder && params.showSuccess === "true") {
+      try {
+        const orderData = JSON.parse(params.newlyPlacedOrder);
+        setNewOrder(orderData);
+        setShowSuccess(true);
+
+        // Hide success message after 5 seconds
+        const timer = setTimeout(() => {
+          setShowSuccess(false);
+        }, 5000);
+
+        return () => clearTimeout(timer);
+      } catch (error) {
+        console.error("Error parsing order data:", error);
+      }
     }
-  }, [user?.id]); // Only depend on user.id
+  }, [params]);
 
   const fetchOrders = async () => {
-    if (!user?.id) {
-      setError("User not found");
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -76,30 +90,15 @@ export default function Orders() {
   const getStatusBadgeColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "completed":
-        return "bg-green-100";
+        return "bg-green-100 text-green-800";
       case "pending":
-        return "bg-yellow-100";
+        return "bg-yellow-100 text-yellow-800";
       case "cancelled":
-        return "bg-red-100";
+        return "bg-red-100 text-red-800";
       case "shipped":
-        return "bg-blue-100";
+        return "bg-blue-100 text-blue-800";
       default:
-        return "bg-gray-100";
-    }
-  };
-
-  const getStatusTextColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return "text-green-800";
-      case "pending":
-        return "text-yellow-800";
-      case "cancelled":
-        return "text-red-800";
-      case "shipped":
-        return "text-blue-800";
-      default:
-        return "text-gray-800";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -176,9 +175,7 @@ export default function Orders() {
                 item.item_status,
               )}`}
             >
-              <Text
-                className={`text-xs font-medium ${getStatusTextColor(item.item_status)}`}
-              >
+              <Text className="text-xs font-medium">
                 {getStatusBadgeText(item.item_status)}
               </Text>
             </View>
@@ -204,9 +201,7 @@ export default function Orders() {
                     order.order_status,
                   )}`}
                 >
-                  <Text
-                    className={`text-xs font-medium ${getStatusTextColor(order.order_status)}`}
-                  >
+                  <Text className="text-xs font-medium">
                     {getStatusBadgeText(order.order_status)}
                   </Text>
                 </View>
@@ -367,6 +362,24 @@ export default function Orders() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Success Banner */}
+      {showSuccess && newOrder && (
+        <View className="p-4 bg-green-50 border-b border-green-200">
+          <View className="flex-row items-center">
+            <Ionicons name="checkmark-circle" size={24} color="#16a34a" />
+            <View className="ml-3 flex-1">
+              <Text className="font-bold text-green-800">Order Confirmed!</Text>
+              <Text className="text-green-600 text-sm">
+                Order #{newOrder.order_number} has been placed successfully.
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowSuccess(false)}>
+              <Ionicons name="close" size={20} color="#16a34a" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View className="flex-1">
         {/* Header */}
         <View className="px-4 pt-4 pb-3 bg-white border-b border-gray-200">

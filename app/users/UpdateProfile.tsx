@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { useForm, Controller } from "react-hook-form";
+import DatePicker from "react-native-date-picker";
 import brgyData from "../../assets/data/refbrgy.json";
 import cityMunData from "../../assets/data/refcitymun.json";
 import provinceData from "../../assets/data/refprovince.json";
@@ -39,13 +40,28 @@ export default function UpdateProfile() {
   const [selectedBarangay, setSelectedBarangay] = useState("");
   const [address, setAddress] = useState("");
 
+  // Date of Birth state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(
+    user?.dob ? new Date(user.dob) : new Date(2000, 0, 1),
+  );
+
   // Modal states for custom pickers
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
+  const [showGenderPicker, setShowGenderPicker] = useState(false);
 
   // Filtered lists
   const [filteredCities, setFilteredCities] = useState([]);
   const [filteredBarangays, setFilteredBarangays] = useState([]);
+
+  // Gender options
+  const genderOptions = [
+    { id: "male", name: "Male" },
+    { id: "female", name: "Female" },
+    { id: "other", name: "Other" },
+    { id: "prefer_not_to_say", name: "Prefer not to say" },
+  ];
 
   // Extract the actual data from RECORDS array
   const regions = regionsData.RECORDS || [];
@@ -71,6 +87,8 @@ export default function UpdateProfile() {
       province: user?.province || "",
       city: user?.city || "",
       barangay: user?.barangay || "",
+      dob: user?.dob || "",
+      gender: user?.gender || "",
     },
   });
 
@@ -79,14 +97,15 @@ export default function UpdateProfile() {
     // Find Calabarzon region (Region IV-A)
     const calabarzon = regions.find(
       (region) =>
-        region.regDesc.includes("CALABARZON") || region.regCode === "0400000000"
+        region.regDesc.includes("CALABARZON") ||
+        region.regCode === "0400000000",
     );
 
     // Find Laguna province
     const laguna = provinces.find(
       (province) =>
         province.provDesc.includes("LAGUNA") ||
-        province.provCode === "043400000"
+        province.provCode === "043400000",
     );
 
     if (calabarzon) {
@@ -100,7 +119,7 @@ export default function UpdateProfile() {
 
       // Filter cities for Laguna
       const citiesInLaguna = cities.filter(
-        (city) => city.provCode === laguna.provCode
+        (city) => city.provCode === laguna.provCode,
       );
       setFilteredCities(citiesInLaguna);
     }
@@ -124,7 +143,7 @@ export default function UpdateProfile() {
   useEffect(() => {
     if (selectedCity) {
       const barangaysInCity = barangays.filter(
-        (brgy) => brgy.citymunCode === selectedCity
+        (brgy) => brgy.citymunCode === selectedCity,
       );
       setFilteredBarangays(barangaysInCity);
       setValue("city", selectedCity);
@@ -140,6 +159,44 @@ export default function UpdateProfile() {
       trigger("barangay");
     }
   }, [selectedBarangay]);
+
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return "Select Date of Birth *";
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  // Handle date change
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    setValue("dob", date.toISOString().split("T")[0]);
+  };
+
+  // Handle date picker confirm
+  const handleDateConfirm = () => {
+    setShowDatePicker(false);
+    setValue("dob", selectedDate.toISOString().split("T")[0]);
+  };
+
+  // Handle date picker cancel
+  const handleDateCancel = () => {
+    setShowDatePicker(false);
+    // Reset to original date if not saved
+    if (user?.dob) {
+      setSelectedDate(new Date(user.dob));
+    }
+  };
+
+  // Get gender display name
+  const getGenderName = () => {
+    const selectedGender = genderOptions.find((g) => g.id === watch("gender"));
+    return selectedGender ? selectedGender.name : "Select Gender";
+  };
 
   // Validate address fields
   const validateAddressFields = (data) => {
@@ -170,7 +227,7 @@ export default function UpdateProfile() {
     // Validate phone number format
     if (!validatePhone(data.phone)) {
       alert(
-        "Please enter a valid 11-digit phone number starting with 09 (e.g., 09613886156)."
+        "Please enter a valid 11-digit phone number starting with 09 (e.g., 09613886156).",
       );
       return;
     }
@@ -181,13 +238,30 @@ export default function UpdateProfile() {
       return;
     }
 
+    // Validate date of birth (optional but if provided, must be valid)
+    if (data.dob) {
+      const dob = new Date(data.dob);
+      const today = new Date();
+      const minDate = new Date();
+      minDate.setFullYear(today.getFullYear() - 120); // Max 120 years old
+
+      if (dob > today) {
+        alert("Date of birth cannot be in the future.");
+        return;
+      }
+      if (dob < minDate) {
+        alert("Date of birth cannot be more than 120 years ago.");
+        return;
+      }
+    }
+
     // Validate address fields
     if (!validateAddressFields(data)) {
       return;
     }
 
     try {
-      await client.put(`/users/profileUpdate/${user.id}`, data).then((res) => {
+      await client.put(`/users/profile-update/${user.id}`, data).then((res) => {
         if (res.status === 200) {
           alert("Profile updated successfully!");
           dispatch(updateProfile(res.data.user));
@@ -222,7 +296,7 @@ export default function UpdateProfile() {
   const getBarangayName = () => {
     if (!selectedBarangay) return "Select Barangay *";
     const barangay = filteredBarangays.find(
-      (b) => b.brgyCode === selectedBarangay
+      (b) => b.brgyCode === selectedBarangay,
     );
     return barangay ? barangay.brgyDesc : "Select Barangay *";
   };
@@ -497,6 +571,77 @@ export default function UpdateProfile() {
                   Format: 09XXXXXXXXX (11 digits)
                 </Text>
               </View>
+
+              {/* Date of Birth */}
+              <View className="mb-4">
+                <Text className="text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth (Optional)
+                </Text>
+                <TouchableOpacity
+                  className={`border rounded-lg p-4 flex-row justify-between items-center ${
+                    watch("dob")
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-300 bg-white"
+                  }`}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text
+                    className={`${
+                      watch("dob")
+                        ? "text-gray-800 font-medium"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {formatDate(watch("dob"))}
+                  </Text>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={20}
+                    color={watch("dob") ? "#16a34a" : "#6b7280"}
+                  />
+                </TouchableOpacity>
+
+                <Controller
+                  control={control}
+                  render={({ field: { value } }) => null}
+                  name="dob"
+                />
+              </View>
+
+              {/* Gender */}
+              <View className="mb-4">
+                <Text className="text-sm font-medium text-gray-700 mb-2">
+                  Gender (Optional)
+                </Text>
+                <TouchableOpacity
+                  className={`border rounded-lg p-4 flex-row justify-between items-center ${
+                    watch("gender")
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-300 bg-white"
+                  }`}
+                  onPress={() => setShowGenderPicker(true)}
+                >
+                  <Text
+                    className={`${
+                      watch("gender")
+                        ? "text-gray-800 font-medium"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {getGenderName()}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={20}
+                    color={watch("gender") ? "#16a34a" : "#6b7280"}
+                  />
+                </TouchableOpacity>
+                <Controller
+                  control={control}
+                  render={({ field: { value } }) => null}
+                  name="gender"
+                />
+              </View>
             </View>
 
             {/* Address Section */}
@@ -760,6 +905,74 @@ export default function UpdateProfile() {
           keyProp="brgyCode"
           labelProp="brgyDesc"
         />
+
+        <ActionSheetPicker
+          visible={showGenderPicker}
+          onClose={() => setShowGenderPicker(false)}
+          selectedValue={watch("gender")}
+          onValueChange={(val) => {
+            setValue("gender", val);
+            trigger("gender");
+          }}
+          items={genderOptions}
+          title="Select Gender"
+          keyProp="id"
+          labelProp="name"
+        />
+
+        {/* Date Picker Modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent={true}
+          animationType="slide"
+        >
+          <View className="flex-1 justify-end bg-black/50">
+            <View className="bg-white rounded-t-3xl p-6">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-xl font-bold text-gray-800">
+                  Select Date of Birth
+                </Text>
+                <TouchableOpacity onPress={handleDateCancel}>
+                  <Ionicons name="close" size={24} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Date Picker */}
+              <View className="items-center">
+                <DatePicker
+                  date={selectedDate}
+                  onDateChange={handleDateChange}
+                  mode="date"
+                  theme="light"
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1900, 0, 1)}
+                  locale="en"
+                  textColor="#000000"
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View className="flex-row gap-3 mt-6">
+                <TouchableOpacity
+                  className="flex-1 bg-gray-200 py-3 rounded-xl"
+                  onPress={handleDateCancel}
+                >
+                  <Text className="text-gray-700 font-semibold text-center">
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="flex-1 bg-green-600 py-3 rounded-xl"
+                  onPress={handleDateConfirm}
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
